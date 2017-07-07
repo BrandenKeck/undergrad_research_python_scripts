@@ -1,0 +1,43 @@
+#! /usr/bin/env python
+#script creates a data file of density vs cycles
+
+#import libraries needed
+import readline
+import numpy as np
+import subprocess
+import os
+import time
+
+initCyc = raw_input('\nHow many initialization cycles?\n')
+cycles = raw_input('\nHow many regular cycles?\n')
+Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd='./', shell=True)
+Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
+for p in Pressures:
+	subprocess.Popen('grep -w -Ev "NumberOfCycles|NumberOfInitializationCycles|RestartFile" simulation.input > t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	time.sleep(0.09)
+	subprocess.Popen('sed "/PrintEvery/a RestartFile    yes" t.dat > a.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	time.sleep(0.09)
+	subprocess.Popen('sed "/SimulationType/a NumberOfCycles    '+str(cycles)+'" a.dat > b.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	time.sleep(0.09)
+	subprocess.Popen('sed "/SimulationType/a NumberOfInitializationCycles    '+str(initCyc)+'" b.dat > c.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	time.sleep(0.09)
+	
+	if(os.path.isdir('./'+ p + 'mbar/RestartInitial')):
+		subprocess.Popen('rm RestartInitial/System_0/*', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		time.sleep(0.09)
+		subprocess.Popen('cp ./Restart/System_0/* ./RestartInitial/System_0', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	else:
+		subprocess.Popen('mkdir "RestartInitial"', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		time.sleep(0.09)
+		subprocess.Popen('mkdir "RestartInitial/System_0"', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		time.sleep(0.09)
+		subprocess.Popen('cp ./Restart/System_0/* ./RestartInitial/System_0', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	
+	job = subprocess.Popen('sbatch job.slurm', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	print('{0} {1}'.format(job.communicate()[0].split()[3],str(p)+'mbar'))
+	
+	subprocess.Popen('rm simulation.input', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	subprocess.Popen('rm t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	subprocess.Popen('rm a.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	subprocess.Popen('rm b.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	subprocess.Popen('mv c.dat simulation.input', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)

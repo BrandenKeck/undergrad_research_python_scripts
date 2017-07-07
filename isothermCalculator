@@ -1,0 +1,104 @@
+#! /usr/bin/env python
+#code takes pseudo atoms, force field def, force field mixing rules, the relevant cif, and molecule definition files and copy them into directories created for each pressure the user wants to run for the isotherm. Writes the job.pbs and simulation.input files. Submits the jobs.
+
+import subprocess
+import time
+import readline
+import numpy as np
+import math
+
+getHost = subprocess.Popen('hostname', stdout=subprocess.PIPE)
+host = getHost.communicate()[0].split()[0]
+
+if 'login0.crc.pitt.edu' in host:
+    #get maximum pressure and the temperature of the isotherm
+    preTemp = raw_input('At what temperature should this isotherm be run? (K)\n')
+    temp = preTemp.replace(" ","") + '.0'
+    maxPressure = float(raw_input('What is the maximum pressure of the isotherm? (mbar)\n'))
+    voidFraction = 2.0
+    while (voidFraction > 1.0 or voidFraction < 0.0):
+        if (voidFraction != 2):
+            print('Likely invalid entry. Try again.\n')
+        voidFraction = float(raw_input('Enter the He void fraction of the MOF.\n'))
+    print('\n\nCalculations:\n')
+    #create the pressure values that will be used in the calculation
+    pressures = np.linspace(0,1,num=20,endpoint=False)
+    Pressures = np.array([],dtype=float)
+    for pres in pressures:
+        P = round(maxPressure * pres ** 2,7)
+        Pressures = np.append(Pressures, P)
+    getDir = subprocess.Popen('pwd', stdout=subprocess.PIPE)
+    location = getDir.communicate()[0].split()
+    #get the name of the cif file
+    cifFile = subprocess.Popen('ls *.cif', stdout=subprocess.PIPE, cwd=str(location[0]), shell=True)
+    cif = str(str(cifFile.communicate()[0].split()[0]).rsplit('.cif')[0])
+    #identify the molecule file in the directory
+    molecule = subprocess.Popen('bash -O extglob -c "ls !(+(force_field|pseudo)*) | grep "def""', stdout=subprocess.PIPE, cwd=str(location[0]), shell=True)
+    mol = str(str(molecule.communicate()[0].split()[0])).replace(".def","")
+    #make the head directory
+    head = cif.rsplit('_')[0]+'_'+mol+'_'+temp.rsplit('.')[0]+'K_DDEC6_UFF'
+    headDir = subprocess.Popen('mkdir {0}'.format(head), shell=True)
+    time.sleep(0.09)
+    subprocess.Popen('touch Isotherm', cwd=head, shell=True)
+    for pressure in Pressures:
+        fil = str(location[0]) + '/' + head + '/' + str(pressure) + 'mbar'
+        createDir = subprocess.Popen('mkdir {0}'.format(fil), stdout=subprocess.PIPE, shell=True)
+        #copy the necessary to each directory
+        time.sleep(0.09)
+        copyfile = subprocess.Popen('cp *.def {0}'.format(fil), shell=True)
+        copyfile2 = subprocess.Popen('cp *.cif {0}'.format(fil), shell=True)
+        #write the simulation.input file
+        inputFile = open('{0}/simulation.input'.format(fil), 'w')
+        inputFile.write('SimulationType\tMonteCarlo\n')
+        inputFile.write('NumberOfCycles\t50000\n')
+        inputFile.write('NumberOfInitializationCycles\t15000\n')
+        inputFile.write('PrintEvery\t100\n')
+        inputFile.write('RestartFile\tno\n\n')
+        inputFile.write('ContinueAfterCrash\tno\n')
+        inputFile.write('WriteBinaryRestartFileEvery\t5000\n\n')
+        inputFile.write('ChargeMethod\tEwald\n')
+        inputFile.write('Cutoff\t14.0\n')
+        inputFile.write('OmitInterMolecularInteractions\tno\n')
+        inputFile.write('OmitAdsorbateAdsorbateVDWInteractions\tno\n')
+        inputFile.write('OmitAdsorbateAdsorbateCoulombInteractions\tno\n\n')
+        inputFile.write('UseChargesFromCIFFile\tyes\n')
+        inputFile.write('Forcefield\tGenericMOFs\n\n')
+        inputFile.write('Framework\t0\n')
+        inputFile.write('FrameworkName\t{0}\n'.format(cif))
+        inputFile.write('UnitCells 2 2 2\n')
+        inputFile.write('HeliumVoidFraction\t{0}\n'.format(voidFraction))
+        inputFile.write('ExternalTemperature\t{0}\n'.format(temp))
+        inputFile.write('ExternalPressure\t{0}\n\n'.format(str(pressure*100)))
+        inputFile.write('Component 0 MoleculeName\t{0}\n'.format(mol))
+        inputFile.write('\tMoleculeDefinition\tTraPPE\n')
+        inputFile.write('\tTranslationProbability\t0.5\n')
+        inputFile.write('\tRotationProbability\t0.5\n')
+        inputFile.write('\tReinsertionProbability\t0.0\n')
+        inputFile.write('\tSwapProbability\t\t1.0\n')
+        inputFile.write('\tCreateNumberOfMolecules\t0\n\n')
+        inputFile.close()
+        #make the jobfile
+        jobfile = open('{0}/job.slurm'.format(fil), 'w')
+        jobfile.write('#!/usr/bin/env bash\n')
+        jobfile.write('#SBATCH --job-name="{0}"\n'.format(cif.rsplit("_",1)[0]+'_'+str(pressure).split(".")[0]+'mbar'))
+        jobfile.write('#SBATCH --output="{0}.out"\n'.format(cif.rsplit("_",1)[0]+'_'+str(pressure).split(".")[0]+'mbar'))
+        jobfile.write('#SBATCH --nodes=1\n')
+        jobfile.write('#SBATCH --cluster=smp\n')
+        jobfile.write('#SBATCH --partition=smp\n')
+        jobfile.write('#SBATCH --ntasks-per-node=1\n')
+        jobfile.write('#SBATCH --time=6-00:00:00\n')
+        jobfile.write('#SBATCH --qos=long\n\n')
+        jobfile.write('module purge\n')
+        jobfile.write('module load python/anaconda2.7-4.2.0\n')
+        jobfile.write('date\n\n')
+        jobfile.write('simulate simulation.input\n')
+        jobfile.write('date\n')
+        jobfile.write('find ./ -type d -exec chmod 750 {} +\n')
+        jobfile.write('find ./ -type f -exec chmod 640 {} +\n')
+        jobfile.write('exit 0')
+        jobfile.close()
+        job = subprocess.Popen('sbatch job.slurm', stdout=subprocess.PIPE, cwd=fil, shell=True)
+        print('{0} {1}'.format(job.communicate()[0].split()[3],str(pressure)+'mbar'))
+    cleanup = subprocess.Popen('rm *def *cif', shell=True)
+else:
+    print('\nYou are logged in to the wrong location. Log in to opa.\n')

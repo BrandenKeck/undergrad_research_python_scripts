@@ -1,0 +1,43 @@
+#! /usr/bin/env python
+#script creates a data file of density vs cycles
+
+#import libraries needed
+import readline
+import numpy as np
+import subprocess
+import os
+
+#define arrays
+ness = []
+density = []
+finalOutput = []
+
+#get cycle interval
+getInterval = subprocess.Popen(r'grep -F "Print every" Output/System_0/output_*', stdout=subprocess.PIPE, shell=True)
+ness = getInterval.communicate()[0]
+ness = ness.split("Print every: ")
+interval = float(ness[1])
+
+#get density string
+getData = subprocess.Popen(r'grep -F "density" Output/System_0/output_*', stdout=subprocess.PIPE, shell=True)
+ness = getData.communicate()[0]
+ness = ness.split("density: ")
+
+#parse string
+for index in range(2, len(ness)):
+	onett = []
+	onett = ness[index].split(" ")
+	density.append(float(onett[0]))
+density.insert(0, 0.0000)
+
+#create data array
+for index in range(0, len(density)):
+	cycNum = interval*index
+	finalOutput.append([cycNum, density[index]])
+
+#export data array
+saveMe = np.asarray(finalOutput)
+np.savetxt("density_profile.csv", saveMe, delimiter=",")
+
+#final user message
+print("File: 'density_profile.csv' created...")
