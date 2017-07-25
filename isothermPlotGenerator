@@ -15,11 +15,9 @@ readline.set_completer_delims(readline.get_completer_delims().replace('-',''))
 #determine who the user is
 user = subprocess.Popen(r'whoami', stdout=subprocess.PIPE)
 name = str(user.communicate()[0].split()).replace("['","").replace("']","")
-
 #define tick mark font size
 plt.rc('xtick', labelsize=20)
 plt.rc('ytick', labelsize=20)
-
 handle = 0
 while (handle != 1 and handle != 2):
     selector = raw_input('\nDo you want a:\n1: Standard plot\n2: Semi-log plot\n')
@@ -29,35 +27,38 @@ while (handle != 1 and handle != 2):
         handle = 2
     else:
         print('\nInvalid entry. Try again.\n')
-
-#identify all the isotherms that could be plotted
+#identify all the isotherms that could be plotted, but first open a dump file for error output
+print('\nPlease wait while I gather all the data. This could take a minute.\n')
+if name == 'jpr54':
+    f = open('/ihome/kjohnson/jpr54/trash.txt', "w")
+elif name == 'bmk62':
+    f = open('/ihome/kjohnson/bmk62/trash.txt', "w")
 user1Path = '/ihome/kjohnson/jpr54/raspa/isotherms'
-user1gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, cwd=user1Path, shell=True)
+user1gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, stderr=f, cwd=user1Path, shell=True)
 user1Locs = user1gen.communicate()[0].split()
 user1Locs = [k.split('.',1)[1] for k in user1Locs]
 user1LocsF = [user1Path+'{0}'.format(b) for b in user1Locs]
 user2Path = '/ihome/kjohnson/bmk62'
-user2gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, cwd=user2Path, shell=True)
+user2gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, stderr=f, cwd=user2Path, shell=True)
+f.close()
+if name == 'jpr54':
+    subprocess.Popen('rm /ihome/kjohnson/jpr54/trash.txt', shell=True)
+elif name == 'bmk62':
+    subprocess.Popen('rm /ihome/kjohnson/bmk62/trash.txt', shell=True)
 user2Locs = user2gen.communicate()[0].split()
 user2Locs = [M.split('.',1)[1] for M in user2Locs]
 user2LocsF = [user2Path+'{0}'.format(N) for N in user2Locs]
 availableIsotherms = user1LocsF + user2LocsF
-
 aControl = 0
-
-#while (aControl != 1):
 print('Available isotherms for plotting:\n')
 for j, line in enumerate(availableIsotherms):
     print('{0}: {1}'.format(j,line))
 print('\nEnter the numbers corresponding to the calculations you would like to plot, separated by spaces.\n')
 calcNumbers = raw_input('For example: 0 1\n')
 calcNumList = np.unique(np.array([int(s) for s in calcNumbers.split() if s.isdigit()]))
-
 dataSetLabels = np.array([])
-
 colorArray = np.array([])
 kolor = np.array(['g','r','k','m','c','b','y'])
-
 #plot the calculated data
 for count, p in enumerate(calcNumList):
     Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd=availableIsotherms[p], shell=True)
@@ -68,7 +69,6 @@ for count, p in enumerate(calcNumList):
         loc = availableIsotherms[p]+'/'+'{0}mbar/Output/System_0/'.format(str(pressure))
         getData = subprocess.Popen('grep -F "Average loading excess [cm^3 (STP)/g" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
         #temporary lines
-        #print('{0}'.format(getData.communicate()[0].split()))
         loading.append(float(getData.communicate()[0].split()[6]))
     loading1 = np.array(loading)
     labelDir = subprocess.Popen('printf "%s" "${PWD##*/}"', stdout=subprocess.PIPE, cwd=availableIsotherms[p], shell=True)
@@ -77,9 +77,7 @@ for count, p in enumerate(calcNumList):
         colorHolder, = plt.plot(pressures1, loading1, label=dataSetLabels[count], linewidth=2.0, color=kolor[count])
     elif (handle == 2):
         colorHolder, = plt.semilogx(pressures1, loading1, label=dataSetLabels[count], linewidth=2.0, color=kolor[count])
-    colorArray = np.append(colorArray, colorHolder.get_color())
-    print('{0}'.format(colorArray))
-    
+    colorArray = np.append(colorArray, colorHolder.get_color()) 
 #determine if a literature data set needs to be plotted
 controller = 0
 while (controller != 1):
@@ -94,17 +92,14 @@ while (controller != 1):
         print('\nData for the following calculations are available:\n')
         for i, line in enumerate(litDataLines):
             print('{0}: {1}'.format(i,line))
-
         #now determine which data sets the user would like to include
         print('\nEnter the numbers corresponding to the calculations you would like to plot, separated by spaces.\n')
         litNumbers = raw_input('For example: 0 1\n')
         litNumList = np.unique(np.array([int(s) for s in litNumbers.split() if s.isdigit()]))
-
     else:
         time.sleep(2)
         print('\n\n\nInvalid entry, please try again.\n')
         time.sleep(1)
-
 #bring in the desired literature data
 if inputRequiredController == 'y':
     for dCount, P in enumerate(litNumList):
@@ -112,7 +107,6 @@ if inputRequiredController == 'y':
         tempLoadingArray = np.array([])
         #dataSetLabels = np.append(dataSetLabels, litDataLines[int(P)])
         fileName = '/ihome/kjohnson/jpr54/raspa/isotherms/literatureData/' + litDataLines[int(P)]
-
     #read in the data
         tempFile = open(fileName, 'r')
         tempLines = tempFile.readlines()
@@ -146,17 +140,13 @@ if inputRequiredController == 'y':
                 plt.plot(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='none')
             elif (handle == 2):
                 plt.semilogx(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='none')
-
-    
 #determine upper axis limits
 xMax = int(math.ceil(float(max(pressures1))))
 yMax = int(math.ceil(float(max(loading1))))
-
 #get plot title
 #pT = subprocess.Popen('pwd', stdout=subprocess.PIPE)
 #plotTitle = str(str(pT.communicate()[0].split()[0])).rsplit('/',1)[1]
 plotTitle = raw_input('\nEnter a name for the plot.\n')
-
 #finally, we have two numpy arrays that contain the data we need. Make the plot and save it
 #plt.plot(pressures1,loading1,label=dataLabel.rsplit('_',3)[0].replace('_',' ')+' Calculated', linewidth=2.0)
 #plt.plot(pressures1,loading1,label='Calculated', linewidth=3.0, marker='*', markersize=14)
@@ -164,7 +154,6 @@ plt.ylabel('Loading (cc/g STP)', fontsize=20)
 plt.xlabel('Pressure (mbar)', fontsize=20)
 plt.legend(loc=7,prop={'size':16})
 plt.axis((0,xMax,0,yMax*1.2))
-
 #write the plot to a file if desired
 pControl = 0
 while pControl != 1:
@@ -176,5 +165,4 @@ while pControl != 1:
         pControl = 1
     else:
         print('try again\n')
-
 plt.show()

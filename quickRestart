@@ -10,6 +10,7 @@ import time
 
 initCyc = raw_input('\nHow many initialization cycles?\n')
 cycles = raw_input('\nHow many regular cycles?\n')
+print('\n')
 Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd='./', shell=True)
 Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
 for p in Pressures:

@@ -11,9 +11,11 @@ import os
 ness = []
 density = []
 finalOutput = []
+fileName = ""
 
 #get cycle interval
 getInterval = subprocess.Popen(r'grep -F "Print every" Output/System_0/output_*', stdout=subprocess.PIPE, shell=True)
+####getFileName = subprocess.Popen(r'grep -F "Print every" Output/System_0/output_*', stdout=subprocess.PIPE, shell=True)
 ness = getInterval.communicate()[0]
 ness = ness.split("Print every: ")
 interval = float(ness[1])
@@ -31,13 +33,15 @@ for index in range(2, len(ness)):
 density.insert(0, 0.0000)
 
 #create data array
+#finalOutput.append(["Cycle", "Density"])
 for index in range(0, len(density)):
 	cycNum = interval*index
 	finalOutput.append([cycNum, density[index]])
 
+print(finalOutput)
 #export data array
 saveMe = np.asarray(finalOutput)
-np.savetxt("density_profile.csv", saveMe, delimiter=",")
+np.savetxt("Output/System_0/density_profile.csv", saveMe, delimiter=",")
 
 #final user message
-print("File: 'density_profile.csv' created...")
+print("Density vs. Cycle file created in the Output directory...")
