@@ -11,19 +11,19 @@ import sys
 getHost = subprocess.Popen('hostname', stdout=subprocess.PIPE)
 host = getHost.communicate()[0].split()[0]
 
-if 'login0.crc.pitt.edu' in host:
+if 'login1.crc.pitt.edu' in host:
     #make sure there are def and cif files in the directory
     checkFile = subprocess.Popen('ls', stdout=subprocess.PIPE)
     checkFiles = checkFile.communicate()[0]
+    getDir = subprocess.Popen('pwd', stdout=subprocess.PIPE)
+    location = getDir.communicate()[0].split()
+    mol = ''
     if '.cif' in checkFiles and '.def' in checkFiles:
         cifFile = subprocess.Popen('ls *.cif', stdout=subprocess.PIPE, shell=True)
         cif = str(str(cifFile.communicate()[0].split()[0]).rsplit('.cif')[0])
-        getDir = subprocess.Popen('pwd', stdout=subprocess.PIPE)
-        location = getDir.communicate()[0].split()
         #determine the components of the calculation
         componentsPre = subprocess.Popen('bash -O extglob -c "ls !(+(p*|f*))+(.def)"', stdout=subprocess.PIPE, shell=True)
         components = componentsPre.communicate()[0].splitlines()
-        mol = ''
         for component in components:
             mol+=str(component.replace('.def',''))+'_'
         np.set_printoptions(suppress=True)
@@ -255,12 +255,13 @@ if 'login0.crc.pitt.edu' in host:
                     for j in range(0,len(components)):
                         inputFile.write('Component {0} MoleculeName\t{1}\n'.format(j,parameterArray[j][0]))
                         inputFile.write('\tMoleculeDefinition\tTraPPE\n')
-                        inputFile.write('\tTranslationProbability\t{0}\n'.format(parameterArray[j][1]))
-                        inputFile.write('\tRotationProbability\t{0}\n'.format(parameterArray[j][2]))
-                        inputFile.write('\tReinsertionProbability\t{0}\n'.format(parameterArray[j][3]))
-                        inputFile.write('\tSwapProbability\t\t{0}\n'.format(parameterArray[j][4]))
-                        inputFile.write('\tCBMCProbability\t\t{0}\n'.format(parameterArray[j][5]))
-                        inputFile.write('\tCFSwapLambdaProbability\t\t{0}\n'.format(parameterArray[j][6]))
+                        inputFile.write('\tMolFraction\t{0}\n'.format(parameterArray[j][1]))
+                        inputFile.write('\tTranslationProbability\t{0}\n'.format(parameterArray[j][2]))
+                        inputFile.write('\tRotationProbability\t{0}\n'.format(parameterArray[j][3]))
+                        inputFile.write('\tReinsertionProbability\t{0}\n'.format(parameterArray[j][4]))
+                        inputFile.write('\tSwapProbability\t\t{0}\n'.format(parameterArray[j][5]))
+                        inputFile.write('\tCBMCProbability\t\t{0}\n'.format(parameterArray[j][6]))
+                        inputFile.write('\tCFSwapLambdaProbability\t\t{0}\n'.format(parameterArray[j][7]))
                         inputFile.write('\tCreateNumberOfMolecules\t0\n\n')
                 else:
                     if noFlag == True:
@@ -285,6 +286,16 @@ if 'login0.crc.pitt.edu' in host:
                                     component = tComponent.replace(".def","")
                                     inputFile.write('Component {0} MoleculeName\t{1}\n'.format(j,component))
                                     inputFile.write('\tMoleculeDefinition\tTraPPE\n')
+                                    molFrac = -1
+                                    while molFrac == -1:
+                                        tempProb = raw_input('\nMol Fraction for {0}?\n'.format(component))
+                                        try:
+                                            if isinstance(float(tempProb), float):
+                                                molFrac = float(tempProb.replace(" ",""))
+                                            else:
+                                                print('\nInvalid entry. Try again.\n')
+                                        except:
+                                            print('\nInvalid entry. Try again.\n')
                                     translateProb = -1
                                     while translateProb == -1:
                                         tempProb = raw_input('\nTranslation probability for {0}?\n'.format(component))
@@ -345,6 +356,7 @@ if 'login0.crc.pitt.edu' in host:
                                                 print('\nInvalid entry. Try again.\n')
                                         except:
                                             print('\nInvalid entry. Try again.\n')
+                                    inputFile.write('\tMolFraction\t{0}\n'.format(molFrac))
                                     inputFile.write('\tTranslationProbability\t{0}\n'.format(translateProb))
                                     inputFile.write('\tRotationProbability\t{0}\n'.format(rotationProb))
                                     inputFile.write('\tReinsertionProbability\t{0}\n'.format(reinsertionProb))
@@ -352,7 +364,7 @@ if 'login0.crc.pitt.edu' in host:
                                     inputFile.write('\tCBMCProbability\t\t{0}\n'.format(cbmcProb))
                                     inputFile.write('\tCFSwapLambdaProbability\t\t{0}\n'.format(cfmcProb))
                                     inputFile.write('\tCreateNumberOfMolecules\t0\n\n')
-                                    parameterArray.append([component,translateProb,rotationProb,reinsertionProb,swapProb,cbmcProb,cfmcProb])
+                                    parameterArray.append([component,molFrac,translateProb,rotationProb,reinsertionProb,swapProb,cbmcProb,cfmcProb])
                                 trueFlag = True
                                 print('\n\nCalculations\n')
                             elif tempVAR == 'n':
