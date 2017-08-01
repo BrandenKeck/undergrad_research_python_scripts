@@ -393,7 +393,7 @@ if 'login1.crc.pitt.edu' in host:
                 jobfile.write('#SBATCH --output="{0}.out"\n'.format(cif.rsplit("_",1)[0]+'_'+mol+str(temp).split('.',1)[0]+'K_'+appString+'_'+str(pressure)+'mbar'))
             jobfile.write('#SBATCH --nodes=1\n')
             jobfile.write('#SBATCH --cluster=smp\n')
-            jobfile.write('#SBATCH --partition=test\n')
+            jobfile.write('#SBATCH --partition=smp\n')
             jobfile.write('#SBATCH --ntasks-per-node=1\n')
             jobfile.write('#SBATCH --time=6-00:00:00\n')
             jobfile.write('#SBATCH --qos=long\n\n')

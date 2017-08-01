@@ -1,0 +1,168 @@
+#! /usr/bin/env python
+#This code will plot user-selected isotherm data, and can also plot literature data.
+#This code will create a constant temperature isotherm plot. It should be executed in the directory containing all of the loading directories for a specified condition, i.e. temperature.
+import readline
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+from re import sub
+import time
+import subprocess
+
+readline.parse_and_bind("tab: complete")
+readline.set_completer_delims(readline.get_completer_delims().replace('-',''))
+
+#determine who the user is
+user = subprocess.Popen(r'whoami', stdout=subprocess.PIPE)
+name = str(user.communicate()[0].split()).replace("['","").replace("']","")
+#define tick mark font size
+plt.rc('xtick', labelsize=20)
+plt.rc('ytick', labelsize=20)
+handle = 0
+while (handle != 1 and handle != 2):
+    selector = raw_input('\nDo you want a:\n1: Standard plot\n2: Semi-log plot\n')
+    if (selector == '1'):
+        handle = 1
+    elif (selector == '2'):
+        handle = 2
+    else:
+        print('\nInvalid entry. Try again.\n')
+#identify all the isotherms that could be plotted, but first open a dump file for error output
+print('\nPlease wait while I gather all the data. This could take a minute.\n')
+if name == 'jpr54':
+    f = open('/ihome/kjohnson/jpr54/trash.txt', "w")
+elif name == 'bmk62':
+    f = open('/ihome/kjohnson/bmk62/trash.txt', "w")
+user1Path = '/ihome/kjohnson/jpr54/raspa/isotherms'
+user1gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, stderr=f, cwd=user1Path, shell=True)
+user1Locs = user1gen.communicate()[0].split()
+user1Locs = [k.split('.',1)[1] for k in user1Locs]
+user1LocsF = [user1Path+'{0}'.format(b) for b in user1Locs]
+user2Path = '/ihome/kjohnson/bmk62'
+user2gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, stderr=f, cwd=user2Path, shell=True)
+f.close()
+if name == 'jpr54':
+    subprocess.Popen('rm /ihome/kjohnson/jpr54/trash.txt', shell=True)
+elif name == 'bmk62':
+    subprocess.Popen('rm /ihome/kjohnson/bmk62/trash.txt', shell=True)
+user2Locs = user2gen.communicate()[0].split()
+user2Locs = [M.split('.',1)[1] for M in user2Locs]
+user2LocsF = [user2Path+'{0}'.format(N) for N in user2Locs]
+availableIsotherms = user1LocsF + user2LocsF
+aControl = 0
+print('Available isotherms for plotting:\n')
+for j, line in enumerate(availableIsotherms):
+    print('{0}: {1}'.format(j,line))
+print('\nEnter the numbers corresponding to the calculations you would like to plot, separated by spaces.\n')
+calcNumbers = raw_input('For example: 0 1\n')
+calcNumList = np.unique(np.array([int(s) for s in calcNumbers.split() if s.isdigit()]))
+dataSetLabels = np.array([])
+colorArray = np.array([])
+kolor = np.array(['g','r','k','m','c','b','y'])
+#plot the calculated data
+for count, p in enumerate(calcNumList):
+    Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd=availableIsotherms[p], shell=True)
+    Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
+    pressures1 = np.sort(np.array([float(i) for i in Pressures]))
+    loading = []
+    for pressure in pressures1:
+        loc = availableIsotherms[p]+'/'+'{0}mbar/Output/System_0/'.format(str(pressure))
+        getData = subprocess.Popen('grep -F "Average loading excess [cm^3 (STP)/g" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+        #temporary lines
+        loading.append(float(getData.communicate()[0].split()[6]))
+    loading1 = np.array(loading)
+    labelDir = subprocess.Popen('printf "%s" "${PWD##*/}"', stdout=subprocess.PIPE, cwd=availableIsotherms[p], shell=True)
+    dataSetLabels = np.append(dataSetLabels,labelDir.communicate()[0])
+    if (handle == 1):
+        colorHolder, = plt.plot(pressures1, loading1, label=dataSetLabels[count], linewidth=2.0, color=kolor[count])
+    elif (handle == 2):
+        colorHolder, = plt.semilogx(pressures1, loading1, label=dataSetLabels[count], linewidth=2.0, color=kolor[count])
+    colorArray = np.append(colorArray, colorHolder.get_color()) 
+#determine if a literature data set needs to be plotted
+controller = 0
+while (controller != 1):
+    inputRequiredController = raw_input('\n\nDo data sets from the literature need to be plotted? (y/n)\n')
+    if (inputRequiredController == 'n'):
+        controller = 1
+    elif (inputRequiredController == 'y'):
+        controller = 1
+        #now display the data file names in th literatureData directory for the user
+        litData = subprocess.Popen(r'ls /ihome/kjohnson/jpr54/raspa/isotherms/literatureData/', stdout=subprocess.PIPE, shell=True)
+        litDataLines = litData.communicate()[0].split()
+        print('\nData for the following calculations are available:\n')
+        for i, line in enumerate(litDataLines):
+            print('{0}: {1}'.format(i,line))
+        #now determine which data sets the user would like to include
+        print('\nEnter the numbers corresponding to the calculations you would like to plot, separated by spaces.\n')
+        litNumbers = raw_input('For example: 0 1\n')
+        litNumList = np.unique(np.array([int(s) for s in litNumbers.split() if s.isdigit()]))
+    else:
+        time.sleep(2)
+        print('\n\n\nInvalid entry, please try again.\n')
+        time.sleep(1)
+#bring in the desired literature data
+if inputRequiredController == 'y':
+    for dCount, P in enumerate(litNumList):
+        tempPressArray = np.array([])
+        tempLoadingArray = np.array([])
+        #dataSetLabels = np.append(dataSetLabels, litDataLines[int(P)])
+        fileName = '/ihome/kjohnson/jpr54/raspa/isotherms/literatureData/' + litDataLines[int(P)]
+    #read in the data
+        tempFile = open(fileName, 'r')
+        tempLines = tempFile.readlines()
+        tempFile.close()
+        tempLine = tempLines[0][:-1]
+        #save the first line in the label, plot the literature data
+        #match the colors
+        testLabel = litDataLines[int(P)].split('_',1)[0] + '_' + litDataLines[int(P)].split('_',2)[1] + '_' + litDataLines[int(P)].split('_',3)[2]
+        colorSuccess = 0
+        for kCounter, nameString in enumerate(dataSetLabels[:]):
+            if (testLabel in nameString):
+                colorMatch = colorArray[kCounter]
+                colorSuccess = 1
+            for jCount, line in enumerate(tempLines):
+                if (jCount > 0):
+                    tempPressArray = np.append(tempPressArray, line.split()[0])
+                    tempLoadingArray = np.append(tempLoadingArray, line.split()[1])
+                    legendSelection = 0
+                    # while (legendSelection != 1):
+                    #print('What information do you need to include in the legend? Calculation/literature is added automatically.\n')
+                    # legendSelection = int(raw_input('1: MOF name only\n2: MOF name and adsorbate\n3:MOF name, adsorbate, and temperature\n4: MOF name and temperature\n5: Adsorbate and temperature\n6: No additional information.'))
+                    # plt.plot(tempPressArray, tempLoadingArray, label=dataSetLabels[dCount].rsplit('_',2)[0].replace('_',' ')+' Literature', marker='o', markersize=10, linestyle='none')
+            #dataSetLabels = np.append(dataSetLabels, tempLine)
+        if (colorSuccess == 1):
+            if (handle == 1):
+                plt.plot(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='none', color=colorMatch)
+            elif (handle == 2):
+                plt.semilogx(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='non', color=colorMatch)
+        elif (colorSuccess == 0):
+            if (handle == 1):
+                plt.plot(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='none')
+            elif (handle == 2):
+                plt.semilogx(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='none')
+#determine upper axis limits
+xMax = int(math.ceil(float(max(pressures1))))
+yMax = int(math.ceil(float(max(loading1))))
+#get plot title
+#pT = subprocess.Popen('pwd', stdout=subprocess.PIPE)
+#plotTitle = str(str(pT.communicate()[0].split()[0])).rsplit('/',1)[1]
+plotTitle = raw_input('\nEnter a name for the plot.\n')
+#finally, we have two numpy arrays that contain the data we need. Make the plot and save it
+#plt.plot(pressures1,loading1,label=dataLabel.rsplit('_',3)[0].replace('_',' ')+' Calculated', linewidth=2.0)
+#plt.plot(pressures1,loading1,label='Calculated', linewidth=3.0, marker='*', markersize=14)
+plt.ylabel('Loading (cc/g STP)', fontsize=20)
+plt.xlabel('Pressure (mbar)', fontsize=20)
+plt.legend(loc=7,prop={'size':16})
+plt.axis((0,xMax,0,yMax*1.2))
+#write the plot to a file if desired
+pControl = 0
+while pControl != 1:
+    savePlot = raw_input('\nsave the plot? y/n\n')
+    if (savePlot == 'y'):
+        plt.savefig(plotTitle)
+        pControl = 1
+    elif (savePlot == 'n'):
+        pControl = 1
+    else:
+        print('try again\n')
+plt.show()
