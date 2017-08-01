@@ -3,19 +3,30 @@
 
 #import libraries needed
 import readline
-import numpy as np
+import numpy
+import math
 import subprocess
+import matplotlib.pyplot as plt
 import os
 
 #define arrays
 ness = []
 density = []
+prodDensity = []
+cycles = []
+prodCycles = []
 finalOutput = []
+xC = []
+yC = []
 fileName = ""
 
-#get cycle interval
+#get cycle interval and number of init cycles
+getInitCycles = subprocess.Popen(r'grep -F "Number of initializing cycles:" Output/System_0/output_*', stdout=subprocess.PIPE, shell=True)
+getInitCycles = getInitCycles.communicate()[0]
+getInitCycles = getInitCycles.split(" ")
+numInit = float(getInitCycles[4])
+
 getInterval = subprocess.Popen(r'grep -F "Print every" Output/System_0/output_*', stdout=subprocess.PIPE, shell=True)
-####getFileName = subprocess.Popen(r'grep -F "Print every" Output/System_0/output_*', stdout=subprocess.PIPE, shell=True)
 ness = getInterval.communicate()[0]
 ness = ness.split("Print every: ")
 interval = float(ness[1])
@@ -29,19 +40,54 @@ ness = ness.split("density: ")
 for index in range(2, len(ness)):
 	onett = []
 	onett = ness[index].split(" ")
-	density.append(float(onett[0]))
+	j = 0
+	k = 0
+	while j == 0:
+		if(onett[k] == ''):
+			k = k+1
+		else:
+			density.append(float(onett[k]))
+			j = 1
 density.insert(0, 0.0000)
 
 #create data array
-#finalOutput.append(["Cycle", "Density"])
 for index in range(0, len(density)):
 	cycNum = interval*index
+	cycles.append(cycNum)
+	if(cycNum > numInit):
+		prodDensity.append(density[index])
+		prodCycles.append(cycNum)
 	finalOutput.append([cycNum, density[index]])
 
-print(finalOutput)
 #export data array
-saveMe = np.asarray(finalOutput)
-np.savetxt("Output/System_0/density_profile.csv", saveMe, delimiter=",")
-
-#final user message
+saveMe = numpy.asarray(finalOutput)
+numpy.savetxt("Output/System_0/density_profile.csv", saveMe, delimiter=",")
 print("Density vs. Cycle file created in the Output directory...")
+	
+#Calculate best fit
+xbar = sum(prodCycles)/len(prodCycles)
+ybar = sum(prodDensity)/len(prodDensity)
+n = len(prodCycles) # or len(Y)
+numer = sum([xi*yi for xi,yi in zip(prodCycles, prodDensity)]) - n * xbar * ybar
+denum = sum([xi**2 for xi in prodCycles]) - n * xbar**2
+b = numer / denum
+a = ybar - b * xbar
+slope = "(Slope: " + str(b) + ")"
+yfit = [a + b * xi for xi in prodCycles]
+
+#plot relevant data
+xMax = int(math.ceil(float(max(cycles))))
+yMax = int(math.ceil(float(max(density))))
+xC.append(numInit)
+xC.append(numInit)
+yC.append(0)
+yC.append(yMax)
+plt.plot(cycles, density, label='Density', linestyle='-', color='blue')
+plt.plot(prodCycles, yfit, label='Density Best Fit ' + slope , linestyle='-', linewidth=3, color='red')
+plt.plot(xC, yC, label='Beginning of Prod. Cycles', linewidth=3, color='black')
+plotTitle = "Density vs. Simulation Cycles"
+plt.xlabel('Cycle Number (Initialization + Production)', fontsize=20)
+plt.ylabel('Density (kg/m3)', fontsize=20)
+plt.axis((0,xMax,0,yMax*1.1))
+plt.legend(loc=7,prop={'size':16})
+plt.show()
