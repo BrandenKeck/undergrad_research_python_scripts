@@ -14,13 +14,15 @@ print('\n')
 Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd='./', shell=True)
 Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
 for p in Pressures:
-	subprocess.Popen('grep -w -Ev "NumberOfCycles|NumberOfInitializationCycles|RestartFile" simulation.input > t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	subprocess.Popen('grep -w -Ev "NumberOfCycles|NumberOfInitializationCycles|RestartFile|ContinueAfterCrash" simulation.input > t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 	time.sleep(0.20)
 	subprocess.Popen('sed "/PrintEvery/a RestartFile    yes" t.dat > a.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 	time.sleep(0.20)
 	subprocess.Popen('sed "/SimulationType/a NumberOfCycles    '+str(cycles)+'" a.dat > b.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 	time.sleep(0.20)
 	subprocess.Popen('sed "/SimulationType/a NumberOfInitializationCycles    '+str(initCyc)+'" b.dat > c.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	time.sleep(0.20)
+	subprocess.Popen('sed "/WriteBinaryRestartFile/a ContinueAfterCrash    no" c.dat > d.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 	time.sleep(0.20)
 	
 	if(os.path.isdir('./'+ p + 'mbar/RestartInitial')):
@@ -38,7 +40,8 @@ for p in Pressures:
 	subprocess.Popen('rm t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 	subprocess.Popen('rm a.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 	subprocess.Popen('rm b.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	subprocess.Popen('mv c.dat simulation.input', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	subprocess.Popen('rm c.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+	subprocess.Popen('mv d.dat simulation.input', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 	time.sleep(0.20)
 	
 	job = subprocess.Popen('sbatch job.slurm', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)

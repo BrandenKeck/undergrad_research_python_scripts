@@ -1,0 +1,9 @@
+#! /usr/bin/env python 
+
+import subprocess
+
+alpha = int(raw_input('Enter the first job in the list of jobs you want to kill: '))
+omega = int(raw_input('Enter the last job in the list of jobs you want to kill: '))
+jobs = range(alpha,omega+1)
+for job in jobs:
+    subprocess.Popen('qdel {0}'.format(job), shell=True)

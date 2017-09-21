@@ -1,0 +1,286 @@
+#! /usr/bin/env python
+
+#The following libraries are required:
+import subprocess # Necessary for Bash commands
+import sys # Necessary for command line inputs
+import os # Necessary to check that file paths are valid
+import re # Necessary to split certain strings to arrays
+import math # Sqrt and PI
+import time # Need to sleep the thread for the program to catch up
+
+# Main class.  Initialization is at the bottom... takes a .cif file path and a .xyz file path
+# Most of the main class performs file manipulation and error handling
+def main(cif_path, xyz_path):
+
+	# Three error checks to ware the user if the .cif and/or .xyz path is invalid
+	if((not os.path.isfile(cif_path)) & os.path.isfile(xyz_path)):
+		print("\nERROR: Invalid .cif file")
+		exit()
+	if((not os.path.isfile(xyz_path)) & os.path.isfile(cif_path)):
+		print("\nERROR: Invalid .xyz file")
+		exit()
+	if((not os.path.isfile(cif_path)) & (not os.path.isfile(xyz_path))):
+		print("\nERROR: Both .cif file and .xyz file are invalid")
+		exit()
+
+	# Splits cif file name from rest of path
+	cif_temp = cif_path.split('/')
+	onett = cif_temp[len(cif_temp)-1]
+	twoson = ''
+	for i in xrange(0,len(cif_temp)-1):
+		twoson += cif_temp[i] + '/'
+	
+	# Splits xyz file name from rest of path
+	xyz_temp = xyz_path.split('/')
+	threed = xyz_temp[len(xyz_temp)-1]
+	fourside = ''
+	for j in xrange(0,len(xyz_temp)-1):
+		fourside += xyz_temp[j] + '/'
+	
+	# adds ./ to front of file paths if necessary
+	if(twoson[:2] != './'): twoson = './' + twoson
+	if(fourside[:2] != './'): fourside = './' + fourside
+	
+	# check that "_atom_site_charge" does not already exist in .cif file
+	# current script will not handle .cif files that already have charges
+	temp = subprocess.Popen('grep "_atom_site_charge" '+ onett, stdout=subprocess.PIPE, cwd=twoson, shell=True)
+	check = temp.communicate()[0]
+	if(len(check)!=0):
+		print("\nERROR: Charges are already in the .cif file")
+		exit()
+		
+	# if the xyz file does not provide net charges, 
+	temp = subprocess.Popen('grep "net_charge" '+ threed, stdout=subprocess.PIPE, cwd=fourside, shell=True)
+	check = temp.communicate()[0]
+	if(len(check)==0):
+		print("\nERROR: No net charge parameter found in the .xyz file specifed")
+		exit()
+	
+	# finds the beginnig and end of relevant data in both files
+	# returns array [cif_start, cif_end, xyz_start, xyz_end]
+	ness = getLinePositions([onett, twoson],[threed, fourside])
+	if((ness[1]-ness[0]) != (ness[3]-ness[2])):
+		print("\nERROR: Mis-match between the number of atoms in the files")
+		exit()
+	if(dataLengthFromLine(ness[2], threed, fourside)<5):
+		print("\nERROR: .xyz file is formatted improperly\n\tNecessary format is <atom type> <x> <y> <z> <charge> ...")
+		exit()
+	
+	# gathers framework data from the .cif file
+	# returns [cell_volume, cell_length_a, cell_length_b, cell_length_c, alpha_angle, beta_angle, gamma_angle]
+	paula = getFrameworkInformation([onett, twoson])
+	
+	# Returns indexes for 'atomic symbol, x, y, z, net_charge,
+	jeff = getCifIndexes(ness, [onett, twoson])
+	
+	# Returns [atom type, frac_x, frac_y, frac_z] from .cif file
+	# and [atom type, x, y, z, net charge] from .xyz file
+	# data returned as [[cif data], [xyz data]]
+	pokey = extractData(ness, paula, jeff, [onett, twoson], [threed, fourside])
+	
+	# Matches the .cif ordered data with the appropriate charges from the .xyz file
+	# Returns [[.cif data with charges], [.xyz data]]
+	picky = matchData(pokey, paula)
+	
+	# Get file information from the user.  
+	try:
+		giygas = raw_input("\nSet a name for the updated .cif file (exclude the .cif extension):\n")
+		giygas = giygas+'.cif'
+		final_path = twoson + giygas
+		subprocess.Popen('touch '+giygas, stdout=subprocess.PIPE, cwd=twoson, shell=True)
+		time.sleep(0.50)
+	except:
+		print("\nERROR: Could not write file.  Exiting program.")
+		exit()
+		
+	try:
+		content = []
+		f = open(cif_path, "r")
+		lines = f.readlines()
+		f.close
+		
+		for i in range(0, ness[0]-1):
+			content.append(lines[i])
+			
+		content.append("_atom_site_charge\n")
+		
+		for j in range(ness[0]-1, ness[1]):
+			j_line = re.split("[\n\r]+", lines[j])
+			appendMe = j_line[0] + "   " + str(picky[0][j-ness[0]+1][4]) + "\n"
+			content.append(appendMe)
+			
+		for k in range(ness[1], (len(lines))):
+			content.append(lines[k])
+		
+		
+		f = open(final_path, "w")
+		content = "".join(content)
+		f.write(content)
+		f.close
+	except:
+		print("\nERROR: Issue writing to file.  Make sure the original .cif file is formatted appropriately")
+		exit()
+	
+def extractData(ness, paula, jeff, winters, summers):
+	cif_data = []
+	xyz_data = []
+	
+	temp = subprocess.Popen('sed "'+str(ness[0])+','+str(ness[1])+'!d" '+ winters[0], stdout=subprocess.PIPE, cwd=winters[1], shell=True)
+	temp = temp.communicate()[0]
+	rawdata1 = re.split("[ \t\n\r]+", temp)
+	
+	temp = subprocess.Popen('sed "'+str(ness[2])+','+str(ness[3])+'!d" '+ summers[0], stdout=subprocess.PIPE, cwd=summers[1], shell=True)
+	temp = temp.communicate()[0]
+	rawdata2 = re.split("[ \t\n\r]+", temp)
+	
+	len1 = dataLengthFromLine(ness[0], winters[0], winters[1])
+	c = len1-1
+	r = ness[1]-ness[0]+1
+	k = 0
+	for i in range(0, r):
+		cif_data.append([])
+		for j in range(0, c):
+			if(j in jeff):
+				cif_data[i].append(rawdata1[k])
+			k+=1
+	
+	len1 = dataLengthFromLine(ness[2], summers[0], summers[1])
+	c = len1-1
+	r = ness[3]-ness[2]+1
+	k = 0
+	for i in range(0, r):
+		xyz_data.append([])
+		for j in range(0, c):
+			xyz_data[i].append(rawdata2[k])
+			k+=1
+	
+	return [cif_data, xyz_data]
+	
+def matchData(data, properties):
+	finalCifData = data[0]
+	for i in range(0, len(data[1])):
+		xyz = convertCartesianToFract(data[1][i][1], data[1][i][2], data[1][i][3], properties)
+		match = data[0].index([data[1][i][0], str(xyz[0]), str(xyz[1]), str(xyz[2])])		
+		finalCifData[match].append(data[1][i][4])
+	
+	return [finalCifData, data[1]]
+	
+def convertCartesianToFract(u, v, w, prop):
+	# Elements of the prop list:
+	#	0.  Volume
+	#	1.	Cell length a
+	#	2.	Cell length b
+	#	3.	Cell length c
+	#	4.	Cell angle alpha
+	#	5.	Cell angle beta
+	#	6.	Cell angle gamma
+
+	x = (1/prop[1])*float(u) - ((math.cos(prop[6]))/(prop[1]*math.sin(prop[6])))*float(v) + prop[2]*prop[3]*((math.cos(prop[4])*math.cos(prop[6]) - math.cos(prop[5]))/(prop[0]*math.sin(prop[6])))*float(w)
+	y = (1/(prop[2]*math.sin(prop[6])))*float(v) + prop[1]*prop[3]*((math.cos(prop[5])*math.cos(prop[6]) - math.cos(prop[4]))/(prop[0]*math.sin(prop[6])))*float(w)
+	z = ((prop[1]*prop[2]*math.sin(prop[6]))/(prop[0]))*float(w)
+	return ["{:.5f}".format(round(x, 5)), "{:.5f}".format(round(y, 5)), "{:.5f}".format(round(z, 5))]
+
+		
+def getCifIndexes(ness, winters):
+	len1 = dataLengthFromLine(ness[0], winters[0], winters[1])
+	
+	dex1 = len1 - (ness[0] - getLine("_atom_site_type_symbol", winters[0], winters[1])) - 1
+	dex2 = len1 - (ness[0] - getLine("_atom_site_fract_x", winters[0], winters[1])) - 1
+	dex3 = len1 - (ness[0] - getLine("_atom_site_fract_y", winters[0], winters[1])) - 1
+	dex4 = len1 - (ness[0] - getLine("_atom_site_fract_z", winters[0], winters[1])) - 1
+	
+	return [dex1, dex2, dex3, dex4]
+			
+# Function pulls relevant information from the .cif file to convert coordinate systems
+def	getFrameworkInformation(winters):
+	a = cifGrep("_cell_length_a", winters[0], winters[1])
+	b = cifGrep("_cell_length_b", winters[0], winters[1])
+	c = cifGrep("_cell_length_c", winters[0], winters[1])
+	alpha = cifGrep("_cell_angle_alpha", winters[0], winters[1])
+	beta = cifGrep("_cell_angle_beta", winters[0], winters[1])
+	gamma = cifGrep("_cell_angle_gamma", winters[0], winters[1])
+	
+	alpha = math.radians(alpha)
+	beta = math.radians(beta)
+	gamma = math.radians(gamma)	
+	
+	volume = a*b*c*math.sqrt(1-((math.cos(alpha))**2)-((math.cos(beta))**2)-((math.cos(gamma))**2)+2*(math.cos(beta))*(math.cos(beta))*(math.cos(beta)))
+
+	return [volume, a, b, c, alpha, beta, gamma]
+	
+# Gets the beginning and ending line positions of relevant data in the .cif and .xyz files	
+def	getLinePositions(winters, summers):
+	pos1 = getLine("_atom_site_fract_x", winters[0], winters[1]) + 1
+	
+	flag = 0
+	while(flag==0):
+		pos1 += 1
+		temp = subprocess.Popen('sed "'+str(pos1)+'!d" '+ winters[0], stdout=subprocess.PIPE, cwd=winters[1], shell=True)
+		temp = temp.communicate()[0]
+		if(temp[:1]!="_"):
+			temp = re.split("[ \n\r]+", temp)
+			check = len(temp)
+			flag=1
+	
+	pos2 = pos1
+	
+	flag = 0
+	while(flag == 0):
+		temp = subprocess.Popen('sed "'+str(pos2)+'!d" '+ winters[0], stdout=subprocess.PIPE, cwd=winters[1], shell=True)
+		temp = temp.communicate()[0]
+		temp = re.split("[ \n\r]+", temp)
+		if(len(temp)!=check):
+			pos2-=1
+			flag=1
+		else:
+			pos2 += 1
+	
+	pos3 = 1
+	flag = 0
+	while(flag==0):
+		temp = subprocess.Popen('sed "'+str(pos3)+'!d" '+ summers[0], stdout=subprocess.PIPE, cwd=summers[1], shell=True)
+		temp = temp.communicate()[0]
+		temp = re.split("[ \n\r]+", temp)
+		if(len(temp[0])>0 & len(temp[0])<3): 
+			pos3 += 1
+			flag = 1
+		else: pos3 += 1
+	
+	pos4 = pos3
+	check = dataLengthFromLine(pos4, summers[0], summers[1])
+	
+	flag = 0
+	while(flag==0):
+		len1 = dataLengthFromLine(pos4, summers[0], summers[1])
+		if(len1!=check):
+			pos4-=1
+			flag=1
+		else:
+			pos4 += 1
+	
+	return [pos1,pos2,pos3,pos4]
+
+def getLine(search, file, path):
+	temp = subprocess.Popen('grep -nr "'+search+'" '+ file, stdout=subprocess.PIPE, cwd=path, shell=True)
+	temp = temp.communicate()[0].split(":")
+	return int(temp[0])
+	
+def cifGrep(search, file, path):
+	temp = subprocess.Popen('grep "'+search+'" '+ file, stdout=subprocess.PIPE, cwd=path, shell=True)
+	temp = temp.communicate()[0]
+	temp = re.split("[, \t\n\r(:]+", temp)
+	return float(temp[1])
+	
+def dataLengthFromLine(line, file, path):
+	temp = subprocess.Popen('sed "'+str(line)+'!d" '+ file, stdout=subprocess.PIPE, cwd=path, shell=True)
+	temp = temp.communicate()[0]
+	temp = re.split("[, \\n\\r!?:]+", temp)
+	return len(temp)
+
+	
+# Initialization.  Checks for correct number of inputs.
+if __name__ == "__main__":
+	if(len(sys.argv) != 3):
+		print("\nERROR: Script takes two arguments...\n\t1. The .cif file path\n\t2. The .xyz (VASP Output) file path\n\nFormat as 'python insertCifCharges <cif_path> <xyz_path>'\n")
+	else:
+		main(sys.argv[1], sys.argv[2])

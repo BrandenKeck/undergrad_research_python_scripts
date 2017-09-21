@@ -5,122 +5,162 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 from re import sub
+import sys
 import time
 import subprocess
 
-#First chunk of code is unchanged...
-readline.parse_and_bind("tab: complete")
-readline.set_completer_delims(readline.get_completer_delims().replace('-',''))
-
-#determine who the user is
-user = subprocess.Popen(r'whoami', stdout=subprocess.PIPE)
-name = str(user.communicate()[0].split()).replace("['","").replace("']","")
-#define tick mark font size
-plt.rc('xtick', labelsize=20)
-plt.rc('ytick', labelsize=20)
-handle = 0
-while (handle != 1 and handle != 2):
-    selector = raw_input('\nDo you want a:\n1: Standard plot\n2: Semi-log plot\n')
-    if (selector == '1'):
-        handle = 1
-    elif (selector == '2'):
-        handle = 2
-    else:
-        print('\nInvalid entry. Try again.\n')
-#identify all the isotherms that could be plotted, but first open a dump file for error output
-print('\nPlease wait while I gather all the data. This could take a minute.\n')
-if name == 'jpr54':
-    f = open('/ihome/kjohnson/jpr54/trash.txt', "w")
-elif name == 'bmk62':
-    f = open('/ihome/kjohnson/bmk62/trash.txt', "w")
-user1Path = '/ihome/kjohnson/jpr54/raspa/isotherms'
-user1gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, stderr=f, cwd=user1Path, shell=True)
-user1Locs = user1gen.communicate()[0].split()
-user1Locs = [k.split('.',1)[1] for k in user1Locs]
-user1LocsF = [user1Path+'{0}'.format(b) for b in user1Locs]
-user2Path = '/ihome/kjohnson/bmk62'
-user2gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, stderr=f, cwd=user2Path, shell=True)
-f.close()
-if name == 'jpr54':
-    subprocess.Popen('rm /ihome/kjohnson/jpr54/trash.txt', shell=True)
-elif name == 'bmk62':
-    subprocess.Popen('rm /ihome/kjohnson/bmk62/trash.txt', shell=True)
-user2Locs = user2gen.communicate()[0].split()
-user2Locs = [M.split('.',1)[1] for M in user2Locs]
-user2LocsF = [user2Path+'{0}'.format(N) for N in user2Locs]
-availableIsotherms = user1LocsF + user2LocsF
-aControl = 0
-print('Available isotherms for plotting:\n')
-for j, line in enumerate(availableIsotherms):
-    print('{0}: {1}'.format(j,line))
-	
-# From here the code is updated to only allow one simulation to be plotted
-# try/catch used to make sure a single integer value is entered
-calcNumbers = raw_input('Enter a single multicomponent isotherm to plot:\n')
-k=0
-while k==0:
-	try:
-		int(calcNumbers)
-		if(int(calcNumbers) < len(availableIsotherms) and int(calcNumbers) >= int(0)):
-			calcNumbers = int(calcNumbers)
-			k=1
+def main():
+	#First chunk of code is unchanged...
+	readline.parse_and_bind("tab: complete")
+	readline.set_completer_delims(readline.get_completer_delims().replace('-',''))
+	#determine who the user is
+	user = subprocess.Popen(r'whoami', stdout=subprocess.PIPE)
+	name = str(user.communicate()[0].split()).replace("['","").replace("']","")
+	#define tick mark font size
+	plt.rc('xtick', labelsize=20)
+	plt.rc('ytick', labelsize=20)
+	handle = 0
+	while (handle != 1 and handle != 2):
+		selector = raw_input('\nDo you want a:\n1: Standard plot\n2: Semi-log plot\n')
+		if (selector == '1'):
+			handle = 1
+		elif (selector == '2'):
+			handle = 2
 		else:
-			calcNumbers = raw_input('Error. Input out of range, try again: \n')
-	except ValueError:
-		calcNumbers = raw_input('ValueError.  Please enter a single value: \n')
+			print('\nInvalid entry. Try again.\n')
+	#identify all the isotherms that could be plotted, but first open a dump file for error output
+	print('\nPlease wait while I gather all the data. This could take a minute.\n')
+	if name == 'jpr54':
+		loadingBar("Creating Temporary Search File", 1)
+		f = open('/ihome/kjohnson/jpr54/trash.txt', "w")
+	elif name == 'bmk62':
+		loadingBar("Creating Temporary Search File", 1)
+		f = open('/ihome/kjohnson/bmk62/trash.txt', "w")
+	user1Path = '/ihome/kjohnson/jpr54/raspa/isotherms'
+	loadingBar("Finding Isotherms in Jon's Directories", 2)
+	user1gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, stderr=f, cwd=user1Path, shell=True)
+	loadingBar("Parsing Data from Jon's Isotherms", 3)
+	user1Locs = user1gen.communicate()[0].split()
+	user1Locs = [k.split('.',1)[1] for k in user1Locs]
+	loadingBar("Parsing Data from Jon's Isotherms", 4)
+	user1LocsF = [user1Path+'{0}'.format(b) for b in user1Locs]
+	user2Path = '/ihome/kjohnson/bmk62'
+	loadingBar("Finding Isotherms in Branden's Directories", 5)
+	user2gen = subprocess.Popen('find -name "Isotherm" -printf "%h\n"', stdout=subprocess.PIPE, stderr=f, cwd=user2Path, shell=True)
+	user2Locs = user2gen.communicate()[0].split()
+	loadingBar("Parsing Data from Branden's Isotherms", 6)
+	user2Locs = [M.split('.',1)[1] for M in user2Locs]
+	loadingBar("Parsing Data from Branden's Isotherms", 7)
+	user2LocsF = [user2Path+'{0}'.format(N) for N in user2Locs]
+	availableIsotherms = user1LocsF + user2LocsF
+	f.close()
+	if name == 'jpr54':
+		loadingBar("Removing Temporary Search File", 8)	
+		subprocess.Popen('rm /ihome/kjohnson/jpr54/trash.txt', shell=True)
+	elif name == 'bmk62':
+		loadingBar("Removing Temporary Search File", 8)	
+		subprocess.Popen('rm /ihome/kjohnson/bmk62/trash.txt', shell=True)
+	print('Available isotherms for plotting:\n')
+	for j, line in enumerate(availableIsotherms):
+		print('{0}: {1}'.format(j,line))
+		
+	# From here the code is updated to only allow one simulation to be plotted
+	# try/catch used to make sure a single integer value is entered
+	calcNumbers = raw_input('Enter a single multicomponent isotherm to plot:\n')
+	k=0
+	while k==0:
+		try:
+			int(calcNumbers)
+			if(int(calcNumbers) < len(availableIsotherms) and int(calcNumbers) >= int(0)):
+				calcNumbers = int(calcNumbers)
+				k=1
+			else:
+				calcNumbers = raw_input('Error. Input out of range, try again: \n')
+		except ValueError:
+			calcNumbers = raw_input('ValueError.  Please enter a single value: \n')
 
-#determine components, with some original IPG code to pull pressures
-components = []
-cTotal = []
-numpyPressures = []
-totalPressures = []
-tempLoadings = []
-totalLoadings = []
-Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd=availableIsotherms[calcNumbers], shell=True)
-pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
-numpyPressures = np.sort(np.array([float(i) for i in pressures]))
-tempLoc = availableIsotherms[calcNumbers]+'/'+'{0}mbar/'.format(str(pressures[0]))
-gD = subprocess.Popen('grep -F "Component" simulation.input', stdout=subprocess.PIPE, cwd=tempLoc, shell=True)
-components = gD.communicate()[0]
-components = components.split(" ")
-loading = []
-for i in range(1, len(components)):
-	if(i%2 == 0):
-		tS = components[i].split("\t")
-		ttS = tS[1].split("\n")
-		cTotal.append(ttS[0])
-		loading.append([])
+	#determine components, with some original IPG code to pull pressures
+	components = []
+	cTotal = []
+	numpyPressures = []
+	totalPressures = []
+	tempLoadings = []
+	totalLoadings = []
+	Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd=availableIsotherms[calcNumbers], shell=True)
+	pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
+	numpyPressures = np.sort(np.array([float(i) for i in pressures]))
+	tempLoc = availableIsotherms[calcNumbers]+'/'+'{0}mbar/'.format(str(pressures[0]))
+	gD = subprocess.Popen('grep -F "Component" simulation.input', stdout=subprocess.PIPE, cwd=tempLoc, shell=True)
+	components = gD.communicate()[0]
+	components = components.split(" ")
+	loading = []
+	for i in range(1, len(components)):
+		if(i%2 == 0):
+			tS = components[i].split("\t")
+			ttS = tS[1].split("\n")
+			cTotal.append(ttS[0])
+			loading.append([])
 
-#read the output files for each set of component adsorption
-for p in pressures:
-	ness = []
-	loc = availableIsotherms[calcNumbers]+'/'+'{0}mbar/Output/System_0/'.format(str(p))
-	getData = subprocess.Popen('grep -F "Average loading excess [cm^3 (STP)/g" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
-	ness = getData.communicate()[0]
-	ness = ness.split(" ")
-	t = 0
-	for n in range(0, (len(ness)-1)):
-		if(ness[n+1]=="+/-"):
-			loading[t].append(float(ness[n]))
-			t = t + 1
-	totalPressures.append(p)
+	#read the output files for each set of component adsorption
+	for p in pressures:
+		ness = []
+		loc = availableIsotherms[calcNumbers]+'/'+'{0}mbar/Output/System_0/'.format(str(p))
+		getData = subprocess.Popen('grep -F "Average loading excess [cm^3 (STP)/g" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		ness = getData.communicate()[0]
+		ness = ness.split(" ")
+		t = 0
+		for n in range(0, (len(ness)-1)):
+			if(ness[n+1]=="+/-"):
+				loading[t].append(float(ness[n]))
+				t = t + 1
+		totalPressures.append(float(p))
 
-#Directory is set to be plot title
-labelDir = subprocess.Popen('printf "%s" "${PWD##*/}"', stdout=subprocess.PIPE, cwd=availableIsotherms[calcNumbers], shell=True)
-plotTitle = labelDir.communicate()[0]
+	#Directory is set to be plot title
+	labelDir = subprocess.Popen('printf "%s" "${PWD##*/}"', stdout=subprocess.PIPE, cwd=availableIsotherms[calcNumbers], shell=True)
 
-#Each component is plotted
-kolor = np.array(['g','r','k','m','c','b','y'])
-for k in range(0, len(cTotal)):
-	if (handle == 1):
-		plt.plot(totalPressures, loading[k], label=cTotal[k], marker='o', markersize=14, linestyle='none', color=kolor[k])
-	elif (handle == 2):
-		plt.semilogx(totalPressures, loading[k], label=cTotal[k], marker='o', markersize=14, linestyle='non', color=kolor[k])
-
-#Final details
-plt.xlabel('Pressure (mbar)', fontsize=20)
-plt.ylabel('Loading (cm^3/gr)', fontsize=20)
-plt.title(plotTitle)
-plt.legend(loc=7,prop={'size':16})
-plt.show()
+	#Each component is plotted
+	kolor = np.array(['g','r','k','m','c','b','y'])
+	finalOutput = []
+	finalOutput.append(totalPressures)
+	for k in range(0, len(cTotal)):
+		if (handle == 1):
+			plt.plot(totalPressures, loading[k], label=cTotal[k], marker='o', markersize=14, linestyle='none', color=kolor[k])
+		elif (handle == 2):
+			plt.semilogx(totalPressures, loading[k], label=cTotal[k], marker='o', markersize=14, linestyle='non', color=kolor[k])
+		finalOutput.append(loading[k])
+			
+	# saveMe = np.asarray(finalOutput)
+	# print(saveMe)
+	# np.savetxt("CurveData.csv", saveMe, delimiter=",")
+	# print("File saved")
+			
+	#Final details
+	plt.xlabel('Pressure (mbar)', fontsize=20)
+	plt.ylabel('Loading (cm^3/gr)', fontsize=20)
+	plotTitle = raw_input('\nEnter a name for the plot.\n')
+	plt.legend(loc=7,prop={'size':16})
+	pControl = 0
+	while pControl != 1:
+		savePlot = raw_input('\nsave the plot? y/n\n')
+		if (savePlot == 'y'):
+			plt.savefig(plotTitle)
+			pControl = 1
+		elif (savePlot == 'n'):
+			pControl = 1
+		else:
+			print('Try again\n')
+	plt.show()
+	
+def loadingBar(ldwht, length):
+	print("Status:   ")
+	print("[[" + "|" * length*4 + " " * (8-length)*4 + "]]")
+	print(ldwht)
+	sys.stdout.write("\033[F")
+	sys.stdout.write("\033[F")
+	sys.stdout.write("\033[F")
+	time.sleep(1)
+	return;
+		
+if __name__ == "__main__":
+	main()		
 		

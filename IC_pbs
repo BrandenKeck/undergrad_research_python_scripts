@@ -11,7 +11,7 @@ import sys
 getHost = subprocess.Popen('hostname', stdout=subprocess.PIPE)
 host = getHost.communicate()[0].split()[0]
 
-if 'mpi.sam.pitt.edu' in host:
+if 'frank.sam.pitt.edu' in host:
     #make sure there are def and cif files in the directory
     checkFile = subprocess.Popen('ls', stdout=subprocess.PIPE)
     checkFiles = checkFile.communicate()[0]
@@ -383,33 +383,23 @@ if 'mpi.sam.pitt.edu' in host:
                                 print('\nInvalid entry. Try again.\n')
             inputFile.close()
             #make the jobfile
-            jobfile = open('{0}/job.slurm'.format(fil), 'w')
-            jobfile.write('#!/usr/bin/env bash\n')
-            if not appString:
-                jobfile.write('#SBATCH --job-name="{0}"\n'.format(cif.rsplit("_",1)[0]+'_'+mol+str(temp).split('.',1)[0]+'K_'+str(pressure)+'mbar'))
-                jobfile.write('#SBATCH --output="{0}.out"\n'.format(cif.rsplit("_",1)[0]+'_'+mol+str(temp).split('.',1)[0]+'K_'+str(pressure)+'mbar'))
-            else:
-                jobfile.write('#SBATCH --job-name="{0}"\n'.format(cif.rsplit("_",1)[0]+'_'+mol+str(temp).split('.',1)[0]+'K_'+appString+'_'+str(pressure)+'mbar'))
-                jobfile.write('#SBATCH --output="{0}.out"\n'.format(cif.rsplit("_",1)[0]+'_'+mol+str(temp).split('.',1)[0]+'K_'+appString+'_'+str(pressure)+'mbar'))
-            jobfile.write('#SBATCH --nodes=1\n')
-            jobfile.write('#SBATCH --cluster=smp\n')
-            jobfile.write('#SBATCH --partition=smp\n')
-            jobfile.write('#SBATCH --ntasks-per-node=1\n')
-            jobfile.write('#SBATCH --time=6-00:00:00\n')
-            jobfile.write('#SBATCH --qos=long\n\n')
-            jobfile.write('module purge\n')
-            jobfile.write('module load python/anaconda2.7-4.2.0\n')
-            jobfile.write('date\n\n')
+            jobfile = open('{0}/job.pbs'.format(fil), 'w')
+            jobfile.write('#! /bin/bash\n')
+            jobfile.write('#PBS -N "{0}.out"\n'.format(cif.rsplit("_",1)[0]+'_'+mol+str(temp).split('.',1)[0]+'K_'+str(pressure)+'mbar'))
+            jobfile.write('#PBS -r n\n')
+            jobfile.write('#PBS -j oe\n')
+            jobfile.write('#PBS -q dist_small\n')
+            jobfile.write('#PBS -l nodes=1:ppn=1\n')
+            jobfile.write('#PBS -l walltime=3:00:00\n\n')
+            jobfile.write('cd $PBS_O_WORKDIR\n')
+            jobfile.write('module load raspa2/gcc-5.2.0\n\n')
             jobfile.write('simulate simulation.input\n')
-            jobfile.write('date\n')
-            jobfile.write('find ./ -type d -exec chmod 750 {} +\n')
-            jobfile.write('find ./ -type f -exec chmod 640 {} +\n')
-            jobfile.write('exit 0')
+            jobfile.write('exit 0\n')
             jobfile.close()
-            job = subprocess.Popen('sbatch job.slurm', stdout=subprocess.PIPE, cwd=fil, shell=True)
-            print('{0} {1}'.format(job.communicate()[0].split()[3],str(pressure)+'mbar'))
+            job = subprocess.Popen('qsub job.pbs', stdout=subprocess.PIPE, cwd=fil, shell=True)
+            print(job.communicate()[0])
             #cleanup = subprocess.Popen('rm *def *cif', shell=True)
     else:
         print('\nYou may not be in the directory you think you are in...\n')
 else:
-    print('\nYou are logged in to the wrong location. Log in to opa.\n')
+    print('\nYou are logged in to the wrong location. Log in to frank.\n')

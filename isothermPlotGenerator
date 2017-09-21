@@ -60,6 +60,7 @@ dataSetLabels = np.array([])
 colorArray = np.array([])
 kolor = np.array(['g','r','k','m','c','b','y'])
 #plot the calculated data
+finalOutput = []
 for count, p in enumerate(calcNumList):
     Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd=availableIsotherms[p], shell=True)
     Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
@@ -78,6 +79,14 @@ for count, p in enumerate(calcNumList):
     elif (handle == 2):
         colorHolder, = plt.semilogx(pressures1, loading1, label=dataSetLabels[count], linewidth=2.0, color=kolor[count])
     colorArray = np.append(colorArray, colorHolder.get_color()) 
+	
+    finalOutput.append(pressures1)
+    finalOutput.append(loading1)
+	
+# saveMe = np.asarray(finalOutput)
+# np.savetxt("CurveData.csv", saveMe, delimiter=",")
+# print("File saved")
+	
 #determine if a literature data set needs to be plotted
 controller = 0
 while (controller != 1):
