@@ -1,0 +1,175 @@
+#! /usr/bin/env python
+#script computes isoteric heats for an isotherm
+
+#import libraries needed
+import readline
+import numpy
+import math
+import subprocess
+import matplotlib.pyplot as plt
+import os
+
+#define arrays
+kB = 1; #Using U in units [K]
+
+#required summations for isosteric heat
+ness = []
+pressure = []
+aveUN = []
+aveU = []
+aveN = []
+aveNsqr = []
+
+def get_heats():
+	#have the user input the isotherm temperature
+	#...and check for errors
+	T = raw_input("\nEnter Isotherm Temperature (K): ");
+	try: T = float(T)
+	except:
+		print("\nERROR: Invalid Input.  Exiting...")
+		exit()
+		
+	if(T<0):
+		print("\nERROR: Invalid Temperature.  \nMake sure units are Kelvin.  Exiting...")
+		exit()
+		
+	#set up the pressure directories, based on our notation
+	Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd='./', shell=True)
+	Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
+	pres = numpy.sort(numpy.array([float(i) for i in Pressures]))
+	
+	for sure in pres:
+		pressure.append(sure)
+		loc = './'+'{0}mbar/Output/System_0/'.format(str(sure))
+		
+		#get number of initial cycles
+		getInitCycles = subprocess.Popen(r'grep -F "Number of initializing cycles:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		getInitCycles = getInitCycles.communicate()[0].split()[4]
+		nIC = float(getInitCycles)
+		
+		#get number of production cycles
+		getCycles = subprocess.Popen(r'grep -F "Number of cycles:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		getCycles = getCycles.communicate()[0].split()[3]
+		nC = float(getCycles)
+		
+		#get number of cycles per print to output
+		getPartition = subprocess.Popen(r'grep -F "Print every:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		getPartition = getPartition.communicate()[0].split()[2]
+		pE = float(getPartition)
+		
+		#get total particle data
+		getNumberParticlesData = subprocess.Popen('grep -F "Number of Adsorbates:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		num = getNumberParticlesData.communicate()[0].split("\n")
+		num = num[:-1]
+		
+		#get total internal energy data
+		getEnergyData = subprocess.Popen('grep -F "Current total potential energy:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		nrgs = getEnergyData.communicate()[0].split("\n")
+		nrgs = nrgs[:-1]
+		
+		#extract an array of just number of particles in each cycle
+		parts = []
+		for p in num:
+			p = p.split(" ")
+			for i in p:
+				try:
+					# output uses a different number of spaces based on number size
+					# I just loop through the line until I find the float
+					i = float(i)
+					parts.append(i);
+					break;
+				except:
+					# "except" requires an indented statement
+					# this function does nothing
+					two = 1 + 1
+		
+		#extract an array of just internal energy in each cycle
+		ener = []
+		for e in nrgs:
+			e = e.split(" ")
+			for i in e:
+				try:
+					# output uses a different number of spaces based on number size
+					# I just loop through the line until I find the float
+					i = float(i)
+					ener.append(i);
+					break;
+				except:
+					# "except" requires an indented statement
+					# this function does nothing
+					two = 1 + 1
+		
+		# Initialize summation variables
+		n = 0
+		u = 0
+		un = 0
+		n_sqr = 0
+		
+		# Create sums for averages
+		iStep = int(math.ceil(nIC/pE)) # Init prints in output
+		pStep = int(math.ceil(nC/pE))  # prod prints in output
+		for i in range(0,len(parts)):
+			if(i<iStep):
+				two = 1+1
+			else:
+				n = n+parts[i]
+				u = u+ener[i]
+				un = un + (parts[i]*ener[i])
+				n_sqr = n_sqr + math.pow(parts[i], 2)
+		
+		# Compute averates
+		aveN.append(n/pStep)
+		aveU.append(u/pStep)
+		aveUN.append(un/pStep)
+		aveNsqr.append(n_sqr/pStep)
+		
+		# Isosteric heat calculations
+		x = len(aveN) - 1
+		ness.append((kB*T)-(aveUN[x] - (aveN[x])*(aveU[x]))/(aveNsqr[x] - math.pow(aveN[x], 2)))
+
+	# Call exiting functions
+	write_to_file()
+	plot_heat()
+
+#write data to file
+def write_to_file():
+	try:
+		content = []
+		content.append("Pressure (mbar)\tHeat (K)\t<N>\t<U>\t<UN>\t<N^2>\n")
+		for i in range(0,len(aveN)):
+			s = str(pressure[i]) + "\t" + str(ness[i]) + "\t" + str(aveN[i]) + "\t" + str(aveU[i]) + "\t" + str(aveUN[i]) + "\t" + str(aveNsqr[i]) + "\n"
+			content.append(s)
+			
+		f = open("isoteric_heats.out", "w")
+		content = "".join(content)
+		f.write(content)
+		f.close
+		
+		print("External data file 'isoteric_heats.out' created...")
+		
+	except:
+		print("An error occured while creating a data file.")
+	
+#plot relevant data
+def plot_heat():
+	xMax = int(math.ceil(float(max(pressure))))
+	yMax = int(math.ceil(float(max(ness))))
+	xMin = int(math.ceil(float(min(pressure))))
+	yMin = int(math.ceil(float(min(ness))))
+	
+	plt.plot(pressure, ness, label='Isoteric Heat', linestyle='-', color='blue')
+	plotTitle = "Isosteric Heat vs. Pressure"
+	plt.xlabel('Pressure [mbar]', fontsize=20)
+	plt.ylabel('Isosteric Heat [K]', fontsize=20)
+	plt.axis((xMin*0.9,xMax*1.1,yMin*0.9,yMax*1.1))
+	plt.legend(loc=7,prop={'size':16})
+	plt.show()
+	
+	
+if __name__ == "__main__":
+	if(os.path.isfile("./Isotherm")):
+		get_heats();
+	else:
+		print("\nERROR: You're not in the right directory")
+		print("\nPlease navigate to a directory with the Isotherm flag")
+

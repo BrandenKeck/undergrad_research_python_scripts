@@ -11,7 +11,7 @@ import sys
 getHost = subprocess.Popen('hostname', stdout=subprocess.PIPE)
 host = getHost.communicate()[0].split()[0]
 
-if 'mpi.sam.pitt.edu' in host:
+if 'pitt.edu' in host:
     #make sure there are def and cif files in the directory
     checkFile = subprocess.Popen('ls', stdout=subprocess.PIPE)
     checkFiles = checkFile.communicate()[0]
@@ -230,6 +230,8 @@ if 'mpi.sam.pitt.edu' in host:
             inputFile.write('NumberOfInitializationCycles\t{0}\n'.format(numICycles))
             inputFile.write('PrintEvery\t100\n')
             inputFile.write('RestartFile\tno\n\n')
+            inputFile.write('Movies\tyes\n')
+            inputFile.write('WriteMoviesEvery\t100\n\n')
             inputFile.write('ContinueAfterCrash\tno\n')
             inputFile.write('WriteBinaryRestartFileEvery\t5000\n\n')
             inputFile.write('ChargeMethod\tEwald\n')

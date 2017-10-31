@@ -16,9 +16,11 @@ readline.set_completer_delims(readline.get_completer_delims().replace('-',''))
 user = subprocess.Popen(r'whoami', stdout=subprocess.PIPE)
 name = str(user.communicate()[0].split()).replace("['","").replace("']","")
 #define tick mark font size
-plt.rc('xtick', labelsize=20)
-plt.rc('ytick', labelsize=20)
+plt.rc('xtick', labelsize=10)
+plt.rc('ytick', labelsize=10)
+plt.rcParams["figure.figsize"] = 6,4
 handle = 0
+fig,ax = plt.subplots()
 while (handle != 1 and handle != 2):
     selector = raw_input('\nDo you want a:\n1: Standard plot\n2: Semi-log plot\n')
     if (selector == '1'):
@@ -59,8 +61,8 @@ calcNumList = np.unique(np.array([int(s) for s in calcNumbers.split() if s.isdig
 dataSetLabels = np.array([])
 colorArray = np.array([])
 kolor = np.array(['g','r','k','m','c','b','y'])
+markerA = np.array(['o','d','h','s','*','v','p'])
 #plot the calculated data
-finalOutput = []
 for count, p in enumerate(calcNumList):
     Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd=availableIsotherms[p], shell=True)
     Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
@@ -78,15 +80,11 @@ for count, p in enumerate(calcNumList):
         colorHolder, = plt.plot(pressures1, loading1, label=dataSetLabels[count], linewidth=2.0, color=kolor[count])
     elif (handle == 2):
         colorHolder, = plt.semilogx(pressures1, loading1, label=dataSetLabels[count], linewidth=2.0, color=kolor[count])
+    filename = dataSetLabels[count]
+    makeRaw = open(filename, 'w')
+    makeRaw.write('{0} {1}'.format(pressures1, loading1))
+    makeRaw.close()
     colorArray = np.append(colorArray, colorHolder.get_color()) 
-	
-    finalOutput.append(pressures1)
-    finalOutput.append(loading1)
-	
-# saveMe = np.asarray(finalOutput)
-# np.savetxt("CurveData.csv", saveMe, delimiter=",")
-# print("File saved")
-	
 #determine if a literature data set needs to be plotted
 controller = 0
 while (controller != 1):
@@ -110,6 +108,7 @@ while (controller != 1):
         print('\n\n\nInvalid entry, please try again.\n')
         time.sleep(1)
 #bring in the desired literature data
+markerCount = 0
 if inputRequiredController == 'y':
     for dCount, P in enumerate(litNumList):
         tempPressArray = np.array([])
@@ -139,36 +138,48 @@ if inputRequiredController == 'y':
                     # legendSelection = int(raw_input('1: MOF name only\n2: MOF name and adsorbate\n3:MOF name, adsorbate, and temperature\n4: MOF name and temperature\n5: Adsorbate and temperature\n6: No additional information.'))
                     # plt.plot(tempPressArray, tempLoadingArray, label=dataSetLabels[dCount].rsplit('_',2)[0].replace('_',' ')+' Literature', marker='o', markersize=10, linestyle='none')
             #dataSetLabels = np.append(dataSetLabels, tempLine)
+        if markerCount > 6:
+            markerCount = 0
         if (colorSuccess == 1):
             if (handle == 1):
-                plt.plot(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='none', color=colorMatch)
+                plt.plot(tempPressArray, tempLoadingArray, label=tempLine, marker=markerA[markerCount], markersize=10, linestyle='none', color=colorMatch)
+                markerCount = markerCount + 1
             elif (handle == 2):
-                plt.semilogx(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='non', color=colorMatch)
+                plt.semilogx(tempPressArray, tempLoadingArray, label=tempLine, marker=markerA[markerCount], markersize=10, linestyle='non', color=colorMatch)
+                markerCount = markerCount + 1
         elif (colorSuccess == 0):
             if (handle == 1):
-                plt.plot(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='none')
+                plt.plot(tempPressArray, tempLoadingArray, label=tempLine, marker=markerA[markerCount], markersize=10, linestyle='none')
+                markerCount = markerCount + 1
             elif (handle == 2):
-                plt.semilogx(tempPressArray, tempLoadingArray, label=tempLine, marker='o', markersize=14, linestyle='none')
+                plt.semilogx(tempPressArray, tempLoadingArray, label=tempLine, marker=markerA[markerCount], markersize=10, linestyle='none')
+                markerCount = markerCount + 1
 #determine upper axis limits
 xMax = int(math.ceil(float(max(pressures1))))
 yMax = int(math.ceil(float(max(loading1))))
 #get plot title
 #pT = subprocess.Popen('pwd', stdout=subprocess.PIPE)
 #plotTitle = str(str(pT.communicate()[0].split()[0])).rsplit('/',1)[1]
-plotTitle = raw_input('\nEnter a name for the plot.\n')
 #finally, we have two numpy arrays that contain the data we need. Make the plot and save it
 #plt.plot(pressures1,loading1,label=dataLabel.rsplit('_',3)[0].replace('_',' ')+' Calculated', linewidth=2.0)
 #plt.plot(pressures1,loading1,label='Calculated', linewidth=3.0, marker='*', markersize=14)
-plt.ylabel('Loading (cc/g STP)', fontsize=20)
-plt.xlabel('Pressure (mbar)', fontsize=20)
-plt.legend(loc=7,prop={'size':16})
-plt.axis((0,xMax,0,yMax*1.2))
+plt.ylabel('Loading (cc/g STP)', fontsize=10)
+plt.xlabel('Pressure (mbar)', fontsize=10)
+handles, labels = ax.get_legend_handles_labels()
+labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: t[0]))
+if handle == 1:
+    plt.legend(handles, labels, loc=4,prop={'size':10},frameon=False)
+elif handle == 2:
+    plt.legend(handles, labels, loc=2,prop={'size':10},frameon=False)
+    plt.subplots_adjust(bottom=0.12)
+plt.axis((0,xMax,0,yMax*1.6))
 #write the plot to a file if desired
 pControl = 0
 while pControl != 1:
     savePlot = raw_input('\nsave the plot? y/n\n')
     if (savePlot == 'y'):
-        plt.savefig(plotTitle)
+        plotTitle = raw_input('\nEnter a name for the plot.\n')
+        plt.savefig(plotTitle, dpi = 300)
         pControl = 1
     elif (savePlot == 'n'):
         pControl = 1
