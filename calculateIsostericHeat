@@ -117,16 +117,25 @@ def get_heats():
 				un = un + (parts[i]*ener[i])
 				n_sqr = n_sqr + math.pow(parts[i], 2)
 		
-		# Compute averates
-		aveN.append(n/pStep)
-		aveU.append(u/pStep)
-		aveUN.append(un/pStep)
-		aveNsqr.append(n_sqr/pStep)
+		if(n!=0 and u!=0 and un!=0 and n_sqr!=0):
+			# Compute averages
+			aveN.append(n/pStep)
+			aveU.append(u/pStep)
+			aveUN.append(un/pStep)
+			aveNsqr.append(n_sqr/pStep)
+			
+			# Isosteric heat calculations
+			x = len(aveN) - 1
+			ness.append((kB*T)-(aveUN[x] - (aveN[x])*(aveU[x]))/(aveNsqr[x] - math.pow(aveN[x], 2)))
+		else:
+			# If anything goes wrong do this
+			aveN.append(0)
+			aveU.append(0)
+			aveUN.append(0)
+			aveNsqr.append(0)
+			ness.append(0)
 		
-		# Isosteric heat calculations
-		x = len(aveN) - 1
-		ness.append((kB*T)-(aveUN[x] - (aveN[x])*(aveU[x]))/(aveNsqr[x] - math.pow(aveN[x], 2)))
-
+			
 	# Call exiting functions
 	write_to_file()
 	plot_heat()
@@ -135,10 +144,15 @@ def get_heats():
 def write_to_file():
 	try:
 		content = []
-		content.append("Pressure (mbar)\tHeat (K)\t<N>\t<U>\t<UN>\t<N^2>\n")
+		content.append("RESULTS:\n\n")
 		for i in range(0,len(aveN)):
-			s = str(pressure[i]) + "\t" + str(ness[i]) + "\t" + str(aveN[i]) + "\t" + str(aveU[i]) + "\t" + str(aveUN[i]) + "\t" + str(aveNsqr[i]) + "\n"
-			content.append(s)
+			content.append("---------------------------------\n")
+			content.append("Pressure (mbar)\t" + str(pressure[i]) + "\n")
+			content.append("Heat (K)\t" + str(ness[i]) + "\n")
+			content.append("\t<N>:\t" + str(aveN[i]) + "\n")
+			content.append("\t<U>:\t" + str(aveU[i]) + "\n")
+			content.append("\t<UN>:\t" + str(aveUN[i]) + "\n")
+			content.append("\t<N^2>:\t" + str(aveNsqr[i]) + "\n\n")
 			
 		f = open("isoteric_heats.out", "w")
 		content = "".join(content)

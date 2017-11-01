@@ -8,41 +8,46 @@ import subprocess
 import os
 import time
 
-initCyc = raw_input('\nHow many initialization cycles?\n')
-cycles = raw_input('\nHow many regular cycles?\n')
-print('\n')
-Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd='./', shell=True)
-Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
-for p in Pressures:
-	subprocess.Popen('grep -w -Ev "NumberOfCycles|NumberOfInitializationCycles|RestartFile|ContinueAfterCrash" simulation.input > t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	time.sleep(0.20)
-	subprocess.Popen('sed "/PrintEvery/a RestartFile    yes" t.dat > a.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	time.sleep(0.20)
-	subprocess.Popen('sed "/SimulationType/a NumberOfCycles    '+str(cycles)+'" a.dat > b.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	time.sleep(0.20)
-	subprocess.Popen('sed "/SimulationType/a NumberOfInitializationCycles    '+str(initCyc)+'" b.dat > c.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	time.sleep(0.20)
-	subprocess.Popen('sed "/WriteBinaryRestartFile/a ContinueAfterCrash    no" c.dat > d.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	time.sleep(0.20)
-	
-	if(os.path.isdir('./'+ p + 'mbar/RestartInitial')):
-		subprocess.Popen('rm RestartInitial/System_0/*', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+if(os.path.isfile("./Isotherm")):
+	initCyc = raw_input('\nHow many initialization cycles?\n')
+	cycles = raw_input('\nHow many regular cycles?\n')
+	print('\n')
+	Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd='./', shell=True)
+	Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
+	for p in Pressures:
+		subprocess.Popen('grep -w -Ev "NumberOfCycles|NumberOfInitializationCycles|RestartFile|ContinueAfterCrash" simulation.input > t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 		time.sleep(0.20)
-		subprocess.Popen('cp ./Restart/System_0/* ./RestartInitial/System_0', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	else:
-		subprocess.Popen('mkdir "RestartInitial"', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		subprocess.Popen('sed "/PrintEvery/a RestartFile    yes" t.dat > a.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 		time.sleep(0.20)
-		subprocess.Popen('mkdir "RestartInitial/System_0"', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		subprocess.Popen('sed "/SimulationType/a NumberOfCycles    '+str(cycles)+'" a.dat > b.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
 		time.sleep(0.20)
-		subprocess.Popen('cp ./Restart/System_0/* ./RestartInitial/System_0', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		subprocess.Popen('sed "/SimulationType/a NumberOfInitializationCycles    '+str(initCyc)+'" b.dat > c.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		time.sleep(0.20)
+		subprocess.Popen('sed "/WriteBinaryRestartFile/a ContinueAfterCrash    no" c.dat > d.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		time.sleep(0.20)
+		
+		if(os.path.isdir('./'+ p + 'mbar/RestartInitial')):
+			subprocess.Popen('rm RestartInitial/System_0/*', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+			time.sleep(0.20)
+			subprocess.Popen('cp ./Restart/System_0/* ./RestartInitial/System_0', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		else:
+			subprocess.Popen('mkdir "RestartInitial"', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+			time.sleep(0.20)
+			subprocess.Popen('mkdir "RestartInitial/System_0"', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+			time.sleep(0.20)
+			subprocess.Popen('cp ./Restart/System_0/* ./RestartInitial/System_0', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		
+		subprocess.Popen('rm simulation.input', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		subprocess.Popen('rm t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		subprocess.Popen('rm a.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		subprocess.Popen('rm b.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		subprocess.Popen('rm c.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		subprocess.Popen('mv d.dat simulation.input', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		time.sleep(0.20)
+		
+		job = subprocess.Popen('sbatch job.slurm', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
+		print('{0} {1}'.format(job.communicate()[0].split()[3],str(p)+'mbar'))
 	
-	subprocess.Popen('rm simulation.input', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	subprocess.Popen('rm t.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	subprocess.Popen('rm a.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	subprocess.Popen('rm b.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	subprocess.Popen('rm c.dat', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	subprocess.Popen('mv d.dat simulation.input', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	time.sleep(0.20)
-	
-	job = subprocess.Popen('sbatch job.slurm', stdout=subprocess.PIPE, cwd='./'+ p + 'mbar/', shell=True)
-	print('{0} {1}'.format(job.communicate()[0].split()[3],str(p)+'mbar'))
+else:
+	print("\nERROR: You're not in the right directory")
+	print("\nPlease navigate to a directory with the Isotherm flag")
