@@ -274,6 +274,7 @@ if 'pitt.edu' in host:
                             inputFile.write('\tRotationProbability\t0.5\n')
                             inputFile.write('\tReinsertionProbability\t0.0\n')
                             inputFile.write('\tSwapProbability\t\t1.0\n')
+                            inputFile.write('\tIdealGasRosenbluthWeight\t1.0\n')
                             inputFile.write('\tCreateNumberOfMolecules\t0\n\n')
                     else:
                         print('\nDo you want to manually specify the move probabilities?\n')

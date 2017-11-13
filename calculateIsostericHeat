@@ -7,6 +7,7 @@ import numpy
 import math
 import subprocess
 import matplotlib.pyplot as plt
+import sys
 import os
 
 #define arrays
@@ -14,7 +15,9 @@ kB = 1; #Using U in units [K]
 
 #required summations for isosteric heat
 ness = []
+onett = []
 pressure = []
+adsorption = []
 aveUN = []
 aveU = []
 aveN = []
@@ -39,6 +42,13 @@ def get_heats():
 	pres = numpy.sort(numpy.array([float(i) for i in Pressures]))
 	
 	for sure in pres:
+		# print current pressure
+		print("Calculating for                       ")
+		sys.stdout.write("\033[F")
+		print("Calculating for " + str(sure) + "mbar.")
+		sys.stdout.write("\033[F")
+		
+		# pressure data
 		pressure.append(sure)
 		loc = './'+'{0}mbar/Output/System_0/'.format(str(sure))
 		
@@ -56,6 +66,26 @@ def get_heats():
 		getPartition = subprocess.Popen(r'grep -F "Print every:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
 		getPartition = getPartition.communicate()[0].split()[2]
 		pE = float(getPartition)
+		
+		# get RASPA heat of desorption
+		getHeatOfDesorptionRASPA = subprocess.Popen(r'grep -F -A8 "desorption:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		getHeatOfDesorptionRASPA = getHeatOfDesorptionRASPA.communicate()[0].split("\n\tAverage")[1]
+		getHeatOfDesorptionRASPA = getHeatOfDesorptionRASPA.split("+/-")[0]
+		getHeatOfDesorptionRASPA = getHeatOfDesorptionRASPA.replace(" ", "")
+		try:
+			hoD = float(getHeatOfDesorptionRASPA)
+			onett.append(hoD)
+		except:
+			onett.append(0)
+			
+		getAbsAdsorption = subprocess.Popen(r'grep -F "Average loading absolute [cm^3 (STP)/g" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		getAbsAdsorption = getAbsAdsorption.communicate()[0].split()[6]
+		try:
+			eA = float(getAbsAdsorption)
+			adsorption.append(eA)
+		except:
+			adsorption.append(0)
+		
 		
 		#get total particle data
 		getNumberParticlesData = subprocess.Popen('grep -F "Number of Adsorbates:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
@@ -147,14 +177,16 @@ def write_to_file():
 		content.append("RESULTS:\n\n")
 		for i in range(0,len(aveN)):
 			content.append("---------------------------------\n")
-			content.append("Pressure (mbar)\t" + str(pressure[i]) + "\n")
-			content.append("Heat (K)\t" + str(ness[i]) + "\n")
-			content.append("\t<N>:\t" + str(aveN[i]) + "\n")
-			content.append("\t<U>:\t" + str(aveU[i]) + "\n")
-			content.append("\t<UN>:\t" + str(aveUN[i]) + "\n")
-			content.append("\t<N^2>:\t" + str(aveNsqr[i]) + "\n\n")
+			content.append("Pressure (mbar)\t\t\t" + str(pressure[i]) + "\n")
+			content.append("Absolute Adsorption (gr/cm3)\t" + str(adsorption[i]) +"\n")
+			content.append("RASPA Heat of Desorption (K)\t" + str(onett[i]) + "\n")
+			content.append("Calculated Isosteric Heat (K)\t" + str(ness[i]) + "\n")
+			content.append("\t<N>:\t\t" + str(aveN[i]) + "\n")
+			content.append("\t<U>:\t\t" + str(aveU[i]) + "\n")
+			content.append("\t<UN>:\t\t" + str(aveUN[i]) + "\n")
+			content.append("\t<N^2>:\t\t" + str(aveNsqr[i]) + "\n\n")
 			
-		f = open("isoteric_heats.out", "w")
+		f = open("isosteric_heats.out", "w")
 		content = "".join(content)
 		f.write(content)
 		f.close
@@ -171,7 +203,8 @@ def plot_heat():
 	xMin = int(math.ceil(float(min(pressure))))
 	yMin = int(math.ceil(float(min(ness))))
 	
-	plt.plot(pressure, ness, label='Isoteric Heat', linestyle='-', color='blue')
+	plt.plot(pressure, ness, label='Isoteric Heat', linewidth=2.0, linestyle='-', color='blue')
+	plt.plot(pressure, onett, label='RASPA Heat of Desorption', linewidth=2.0, linestyle='-.', color='red')
 	plotTitle = "Isosteric Heat vs. Pressure"
 	plt.xlabel('Pressure [mbar]', fontsize=20)
 	plt.ylabel('Isosteric Heat [K]', fontsize=20)
