@@ -1,0 +1,118 @@
+#! /usr/bin/env python
+#script computes isoteric heats for an isotherm
+
+#import libraries needed
+import readline
+import numpy
+import math
+import subprocess
+import matplotlib.pyplot as plt
+import sys
+import os
+
+#energy arrays and pressure array
+pressure = []
+aaVDW = []
+aaCoulomb = []
+haVDW = []
+haCoulomb  = []
+ness = []
+
+def get_energies():		
+	#set up the pressure directories, based on our notation
+	Dirs = subprocess.Popen('ls -d */', stdout=subprocess.PIPE, cwd='./', shell=True)
+	Pressures = Dirs.communicate()[0].replace("mbar/\n"," ").split()
+	pres = numpy.sort(numpy.array([float(i) for i in Pressures]))
+	
+	#extract the data
+	for sure in pres:
+		print("Calculating for                       ")
+		sys.stdout.write("\033[F")
+		print("Calculating for " + str(sure) + "mbar.")
+		sys.stdout.write("\033[F")
+		
+		pressure.append(sure)
+		loc = './'+'{0}mbar/Output/System_0/'.format(sure)
+			
+		getAA = subprocess.Popen(r'grep -F -A8 "Average Adsorbate-Adsorbate energy:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		getAA = getAA.communicate()[0].split("\n\t")[7]
+		getAA = getAA.split("Van der Waals: ")
+		getAA = getAA[1].split("Coulomb: ")
+		try:
+			aa1 = float(getAA[0].split(" ")[0])
+			aa2 = float(getAA[1].split(" ")[0])
+			aaVDW.append(aa1)
+			aaCoulomb.append(aa2)
+		except:
+			aaVDW.append(0)
+			aaCoulomb.append(0)
+			
+		getHA = subprocess.Popen(r'grep -F -A8 "Average Host-Adsorbate energy:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		getHA = getHA.communicate()[0].split("\n\t")[7]
+		getHA = getHA.split("Van der Waals: ")
+		getHA = getHA[1].split("Coulomb: ")
+		try:
+			ha1 = float(getHA[0].split(" ")[0])
+			ha2 = float(getHA[1].split(" ")[0])
+			haVDW.append(ha1)
+			haCoulomb.append(ha2)
+		except:
+			haVDW.append(0)
+			haCoulomb.append(0)
+			
+		getTC = subprocess.Popen(r'grep -F -A8 "Tail-correction energy:" output_*', stdout=subprocess.PIPE, cwd=loc, shell=True)
+		getTC = getTC.communicate()[0].split("\n\t")[7]
+		getTC = getTC.split(" [K]")[0]
+		getTC = getTC.split(" ")
+		getTC = getTC[len(getTC)-1]
+		ness.append(getTC);
+	
+	
+	write_to_file()
+	plot_energies()
+
+#write data to file
+def write_to_file():
+	try:
+		content = []
+		content.append("RESULTS:\n\n")
+		for i in range(0,len(pressure)):
+			content.append("---------------------------------\n")
+			content.append("Pressure (mbar)\t\t\t" + str(pressure[i]) + "\n")
+			content.append("Adsorbate-Adsorbate VDW:\t" + str(aaVDW[i]) +"\n")
+			content.append("Adsorbate-Adsorbate Coulomb:\t" + str(aaCoulomb[i]) + "\n")
+			content.append("Host-Adsorbate VDW:\t" + str(haVDW[i]) + "\n")
+			content.append("Host-Adsorbate Coulomb:\t" + str(haCoulomb[i]) + "\n")
+			content.append("Tail Corrections:\t" + str(ness[i]) + "\n")
+			
+		f = open("energies.out", "w")
+		content = "".join(content)
+		f.write(content)
+		f.close
+		
+		print("External data file 'energies.out' created...")
+		
+	except:
+		print("An error occured while creating a data file.")
+	
+#plot relevant data
+def plot_energies():	
+	plt.plot(pressure, aaVDW, label='Adsorbate-Adsorbate VDW', linewidth=3.0, linestyle='--', color='blue')
+	plt.plot(pressure, aaCoulomb, label='Adsorbate-Adsorbate Coulomb', linewidth=3.0, linestyle='-.', color='blue')
+	plt.plot(pressure, haVDW, label='Host-Adsorbate VDW', linewidth=3.0, linestyle='--', color='red')
+	plt.plot(pressure, haCoulomb, label='Host-Adsorbate Coulomb', linewidth=3.0, linestyle='-.', color='red')
+	plt.plot(pressure, ness, label='Tail Corrections', linewidth=3.0, linestyle='--', color='green')
+	plotTitle = "Energy Analysis"
+	plt.xlabel('Pressure [mbar]', fontsize=20)
+	plt.ylabel('Energy [K]', fontsize=20)
+	plt.legend(loc=7,prop={'size':10},frameon=False)
+	plt.show()
+	
+	
+if __name__ == "__main__":
+	if(os.path.isfile("./Isotherm")):
+		get_energies();
+	else:
+		print("\nERROR: You're not in the right directory")
+		print("\nPlease navigate to a directory with the Isotherm flag")
+
