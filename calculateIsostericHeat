@@ -15,7 +15,6 @@ kB = 1; #Using U in units [K]
 
 #required summations for isosteric heat
 ness = []
-paula = []
 onett = []
 pressure = []
 adsorption = []
@@ -36,14 +35,6 @@ def get_heats():
 		
 	if(T<0):
 		print("\nERROR: Invalid Temperature.  \nMake sure units are Kelvin.  Exiting...")
-		exit()
-		
-	#have the user input the number of blocks used
-	#...and check for errors
-	NB = raw_input("\nEnter Number of Blocks for Calculation (Default is 5): ");
-	try: NB = int(NB)
-	except:
-		print("\nERROR: Invalid Input.  Exiting...")
 		exit()
 		
 	#set up the pressure directories, based on our notation
@@ -142,36 +133,12 @@ def get_heats():
 		# Determine block partitioning
 		iStep = int(math.ceil(nIC/pE)) # Init prints in output
 		pStep = int(math.ceil(nC/pE))  # prod prints in output
-		pMod = pStep%NB
-		bSum = 0
-		stepsPerBlock = []
-		blockEndsAt = []
-		for i in range(0,NB):
-			if(pMod<i):
-				bSum += math.floor(pStep/NB)
-				stepsPerBlock.append(math.floor(pStep/NB))
-				blockEndsAt.append(bSum)
-			else:
-				bSum += math.ceil(pStep/NB)
-				stepsPerBlock.append(math.ceil(pStep/NB))
-				blockEndsAt.append(bSum)
 		
 		# Initialize summation variables
 		n = 0
 		u = 0
 		un = 0
 		n_sqr = 0
-		
-		bn = 0
-		bu = 0
-		bun = 0
-		bn_sqr = 0
-		k = 0
-		
-		blockN = []
-		blockU = []
-		blockUN = []
-		blockNsqr = []
 		
 		# Create sums for averages
 		for i in range(0,len(parts)):
@@ -182,25 +149,6 @@ def get_heats():
 				u = u+ener[i]
 				un = un + (parts[i]*ener[i])
 				n_sqr = n_sqr + math.pow(parts[i], 2)
-				
-				if((i-iStep)<blockEndsAt[k]-1):
-					bn = bn + parts[i]
-					bu = bu + ener[i]
-					bun = bun + (parts[i]*ener[i])
-					bn_sqr = bn_sqr + math.pow(parts[i], 2)
-				if((i-iStep)==blockEndsAt[k]-1):
-					blockN.append(bn);
-					blockU.append(bu);
-					blockUN.append(bun);
-					blockNsqr.append(bn_sqr);
-					
-					bn = 0
-					bu = 0
-					bun = 0
-					bn_sqr = 0
-					
-					k = k + 1
-					print(blockN)
 		
 		if(n!=0 and u!=0 and un!=0 and n_sqr!=0):
 			# Compute averages
@@ -213,21 +161,6 @@ def get_heats():
 			x = len(aveN) - 1
 			ness.append((kB*T)-(aveUN[x] - (aveN[x])*(aveU[x]))/(aveNsqr[x] - math.pow(aveN[x], 2)))
 			
-			bSum = 0
-			for i in range(0,NB):
-				blockN[i] = blockN[i]/stepsPerBlock[i]
-				blockU[i] = blockU[i]/stepsPerBlock[i]
-				blockUN[i] = blockUN[i]/stepsPerBlock[i]
-				blockNsqr[i] = blockNsqr[i]/stepsPerBlock[i]
-				
-				if(blockUN[i] == 0):
-					bsum = 0
-					break;
-				else:
-					bSum = bSum+((kB*T)-(blockUN[i] - (blockN[i])*(blockU[i]))/(blockNsqr[i] - math.pow(blockN[i], 2)))
-					
-			paula.append(bSum/NB)
-			
 		else:
 			# If anything goes wrong do this
 			aveN.append(0)
@@ -235,7 +168,6 @@ def get_heats():
 			aveUN.append(0)
 			aveNsqr.append(0)
 			ness.append(0)
-			paula.append(0)
 		
 	# Call exiting functions
 	write_to_file()
@@ -252,7 +184,6 @@ def write_to_file():
 			content.append("Absolute Adsorption (gr/cm3)\t" + str(adsorption[i]) +"\n")
 			content.append("RASPA Heat of Desorption (K)\t" + str(onett[i]) + "\n")
 			content.append("Calculated Isosteric Heat (K)\t" + str(ness[i]) + "\n")
-			content.append("Calculated Block Averaged (K)\t" + str(paula[i]) + "\n")
 			content.append("\t<N>:\t\t" + str(aveN[i]) + "\n")
 			content.append("\t<U>:\t\t" + str(aveU[i]) + "\n")
 			content.append("\t<UN>:\t\t" + str(aveUN[i]) + "\n")
@@ -276,7 +207,6 @@ def plot_heat():
 	yMin = int(math.ceil(float(min(ness))))
 	
 	plt.plot(pressure, ness, label='Isoteric Heat', linewidth=2.0, linestyle='-', color='blue')
-	plt.plot(pressure, paula, label='Calculated Block Ave', linewidth=2.0, linestyle='-.', color='green')
 	plt.plot(pressure, onett, label='RASPA Heat of Desorption', linewidth=2.0, linestyle='-.', color='red')
 	plotTitle = "Isosteric Heat vs. Pressure"
 	plt.xlabel('Pressure [mbar]', fontsize=20)
